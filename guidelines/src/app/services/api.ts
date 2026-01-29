@@ -310,49 +310,69 @@ export class DifyApiService {
       let cleanAnswer = response.answer.trim();
       console.log('督导原始响应:', cleanAnswer);
 
-      // 尝试解析各种可能的格式
       let evaluationData: SupervisorEvaluation | null = null;
 
-      // 格式1: {"result": {"reply": "自然语言反馈...\n\n结构化输出：\n{...}"}}
+      // 第一步：尝试解析外层 JSON
+      let outerJson: any = null;
       try {
-        const outerJson = JSON.parse(cleanAnswer);
-        if (outerJson.result && outerJson.result.reply) {
-          let replyContent = outerJson.result.reply;
-          // 使用 extractFirstJson 提取结构化输出中的 JSON
-          const extractedJson = this.extractFirstJson(replyContent);
-          if (extractedJson) {
-            evaluationData = JSON.parse(extractedJson) as SupervisorEvaluation;
-            console.log('从 result.reply 中提取到督导数据:', evaluationData);
-          }
-        }
-        // 格式2: {"reply": "自然语言反馈...\n\n结构化输出：\n{...}"}
-        else if (outerJson.reply) {
-          let replyContent = outerJson.reply;
-          // 使用 extractFirstJson 提取结构化输出中的 JSON
-          const extractedJson = this.extractFirstJson(replyContent);
-          if (extractedJson) {
-            evaluationData = JSON.parse(extractedJson) as SupervisorEvaluation;
-            console.log('从 reply 中提取到督导数据:', evaluationData);
-          }
-        }
-        // 格式3: 直接包含督导字段的 JSON
-        else if (outerJson.综合得分 !== undefined || outerJson.总体评价 || outerJson.建议 || outerJson.跳步判断) {
-          evaluationData = outerJson as SupervisorEvaluation;
-          console.log('直接解析到督导数据:', evaluationData);
-        }
+        outerJson = JSON.parse(cleanAnswer);
       } catch (e) {
-        console.log('尝试格式1-3失败:', e);
+        console.log('无法解析外层JSON，尝试直接从文本提取');
       }
 
-      // 如果上面的格式都没匹配到，尝试从文本中直接提取 JSON
-      if (!evaluationData) {
+      let replyContent = '';
+
+      // 从外层JSON中获取 reply 字段
+      if (outerJson) {
+        if (outerJson.result && outerJson.result.reply) {
+          replyContent = outerJson.result.reply;
+          console.log('格式1: 从 result.reply 获取内容');
+        } else if (outerJson.reply) {
+          replyContent = outerJson.reply;
+          console.log('格式2: 从 reply 获取内容');
+        } else if (outerJson.综合得分 !== undefined || outerJson.总体评价 || outerJson.建议 || outerJson.跳步判断) {
+          evaluationData = outerJson as SupervisorEvaluation;
+          console.log('格式3: 直接包含督导字段');
+        }
+      }
+
+      // 第二步：如果有 reply 内容，从中提取督导数据
+      if (replyContent && !evaluationData) {
+        console.log('reply内容:', replyContent.substring(0, 200) + '...');
+
+        // 使用 extractFirstJson 从 reply 中提取督导数据
+        const extractedJson = this.extractFirstJson(replyContent);
+        if (extractedJson) {
+          console.log('从 reply 中提取到 JSON:', extractedJson.substring(0, 200) + '...');
+          try {
+            evaluationData = JSON.parse(extractedJson) as SupervisorEvaluation;
+            console.log('成功解析督导数据:', evaluationData);
+          } catch (e) {
+            console.log('解析提取的JSON失败:', e);
+          }
+        }
+      }
+
+      // 第三步：如果还没找到，尝试从整个响应文本中提取
+      if (!evaluationData && !outerJson) {
         const extractedJson = this.extractFirstJson(cleanAnswer);
         if (extractedJson) {
           try {
-            evaluationData = JSON.parse(extractedJson) as SupervisorEvaluation;
-            console.log('从文本中提取到督导数据:', evaluationData);
+            const parsed = JSON.parse(extractedJson);
+            // 检查是否包含督导字段
+            if (parsed.综合得分 !== undefined || parsed.总体评价 || parsed.建议 || parsed.跳步判断) {
+              evaluationData = parsed as SupervisorEvaluation;
+              console.log('从文本中提取到督导数据:', evaluationData);
+            } else if (parsed.reply) {
+              // 如果提取的是 {"reply": "..."}，再从 reply 中提取
+              const innerJson = this.extractFirstJson(parsed.reply);
+              if (innerJson) {
+                evaluationData = JSON.parse(innerJson) as SupervisorEvaluation;
+                console.log('从嵌套的 reply 中提取到督导数据:', evaluationData);
+              }
+            }
           } catch (e) {
-            console.log('解析提取的JSON失败:', e);
+            console.log('从文本提取解析失败:', e);
           }
         }
       }
