@@ -1,11 +1,16 @@
 {
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://api.dify.ai/:path*"
-    }
-  ],
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "nodejs20.x"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/dist/$1"
+    }
+  ]
 }
