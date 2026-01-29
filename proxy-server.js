@@ -1,21 +1,25 @@
+require('dotenv').config({ path: '.env.local' });
 const express = require('express');
 const cors = require('cors');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+const PROXY_TARGET = process.env.PROXY_TARGET || 'https://gateway.lingxinai.com/dify-test';
+const PROXY_PATH_REWRITE = process.env.PROXY_PATH_REWRITE || '/v1';
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 
 app.use(cors({
-    origin: '*',
+    origin: CORS_ORIGIN,
     credentials: true
 }));
 
 app.use('/api', createProxyMiddleware({
-    target: 'https://gateway.lingxinai.com/dify-test',
+    target: PROXY_TARGET,
     changeOrigin: true,
     secure: false,
     pathRewrite: {
-        '^/api': '/v1'
+        '^/api': PROXY_PATH_REWRITE
     },
     onProxyReq: (proxyReq, req, res) => {
         console.log('代理请求:', req.method, req.url);
