@@ -27,14 +27,14 @@ export function ChatInterface({ scenario, onBack }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [chartData, setChartData] = useState<ChartData | null>(null);
-  const [supervisorEvaluation, setSupervisorEvaluation] = useState<SupervisorEvaluation | null>(null);
+  const [supervisorEvaluations, setSupervisorEvaluations] = useState<Array<SupervisorEvaluation & { turn: number }>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleReset = async () => {
     setMessages([]);
     setInput('');
     setChartData(null);
-    setSupervisorEvaluation(null);
+    setSupervisorEvaluations([]);
     setIsLoading(true);
 
     try {
@@ -96,7 +96,8 @@ export function ChatInterface({ scenario, onBack }: ChatInterfaceProps) {
       }));
 
       const supervisorResponse = await difyApiService.callSupervisorAgent(input, conversationHistory, chartData);
-      setSupervisorEvaluation(supervisorResponse);
+      const currentTurn = Math.floor((messages.length + 1) / 2);
+      setSupervisorEvaluations(prev => [...prev, { ...supervisorResponse, turn: currentTurn }]);
 
       const visitorResponse = await difyApiService.callVisitorAgent(input);
 
@@ -315,7 +316,7 @@ export function ChatInterface({ scenario, onBack }: ChatInterfaceProps) {
 
         {/* Right Sidebar - Supervisor Feedback */}
         <div className="w-96 flex-shrink-0">
-          <SupervisorFeedback evaluation={supervisorEvaluation} />
+          <SupervisorFeedback evaluations={supervisorEvaluations} />
         </div>
       </div>
     </div>
