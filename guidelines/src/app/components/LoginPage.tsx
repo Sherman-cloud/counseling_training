@@ -57,9 +57,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               />
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full h-11 bg-slate-900 hover:bg-slate-800"
+            <Button
+              type="submit"
+              className="w-full h-11 text-white hover:opacity-90"
+              style={{ backgroundColor: '#7BC0CD' }}
             >
               登录
             </Button>

@@ -176,8 +176,9 @@ export function ScenarioSelection({ onSelectScenario, onLogout }: ScenarioSelect
                 </div>
                 
                 {/* Start Button */}
-                <Button 
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white"
+                <Button
+                  className="w-full text-white hover:opacity-90"
+                  style={{ backgroundColor: '#7BC0CD' }}
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelectScenario(scenario);

@@ -22,84 +22,13 @@ interface ChatInterfaceProps {
   onFinish: () => void;
 }
 
-function OpeningScreen({ scenario, onStart }: { scenario: Scenario; onStart: () => void }) {
-  return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
-        <div className="max-w-3xl w-full">
-          <div className="bg-white rounded-3xl shadow-xl p-10 space-y-8">
-            <div className="text-center space-y-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                <span className="text-3xl">👨‍🏫</span>
-              </div>
-              <h1 className="text-2xl font-bold text-slate-900">
-                您好！我是您的专属心理咨询培训督导。
-              </h1>
-              <p className="text-slate-600 leading-relaxed">
-                在接下来的模拟咨询中，我将全程在后台陪伴您，实时监控咨访关系，并在必要时给予策略建议。
-              </p>
-            </div>
-
-            {scenario.visitorProfile && (
-              <div className="space-y-6 border-t border-slate-100 pt-8">
-                <div className="bg-slate-50 rounded-xl p-6 space-y-4">
-                  <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                    <span>📋</span> 今日来访者档案
-                  </h2>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex">
-                      <span className="text-slate-500 w-24 flex-shrink-0">姓名</span>
-                      <span className="text-slate-900 font-medium">{scenario.visitorProfile.name}</span>
-                    </div>
-                    <div className="flex">
-                      <span className="text-slate-500 w-24 flex-shrink-0">年龄</span>
-                      <span className="text-slate-900">{scenario.visitorProfile.age}</span>
-                    </div>
-                    <div className="flex">
-                      <span className="text-slate-500 w-24 flex-shrink-0">主诉问题</span>
-                      <span className="text-slate-900">{scenario.visitorProfile.problem}</span>
-                    </div>
-                    <div className="flex">
-                      <span className="text-slate-500 w-24 flex-shrink-0">防御特征</span>
-                      <span className="text-slate-900">{scenario.visitorProfile.defense}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-amber-50 rounded-xl p-6">
-                  <h2 className="text-lg font-semibold text-amber-900 flex items-center gap-2 mb-3">
-                    <span>🎯</span> 本局训练目标
-                  </h2>
-                  <p className="text-sm text-amber-800 leading-relaxed">
-                    {scenario.visitorProfile.trainingGoal}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="text-center pt-4">
-              <p className="text-slate-500 mb-6">准备好了吗？请点击下方按钮开启训练！👇</p>
-              <Button
-                onClick={onStart}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-6 text-lg h-auto"
-              >
-                开始新的对话练习
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [chartData, setChartData] = useState<ChartData | null>(null);
   const [supervisorEvaluations, setSupervisorEvaluations] = useState<Array<SupervisorEvaluation & { turn: number }>>([]);
-  const [hasStarted, setHasStarted] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleReset = async () => {
@@ -107,7 +36,6 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
     setInput('');
     setChartData(null);
     setSupervisorEvaluations([]);
-    setHasStarted(true);
     setIsLoading(true);
 
     try {
@@ -141,6 +69,13 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    if (!hasInitialized) {
+      setHasInitialized(true);
+      handleReset();
+    }
+  }, [hasInitialized]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -194,10 +129,6 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
       handleSend();
     }
   };
-
-  if (!hasStarted) {
-    return <OpeningScreen scenario={scenario} onStart={handleReset} />;
-  }
 
   return (
     <div className="h-screen flex flex-col bg-slate-50">
@@ -299,8 +230,9 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
                       className={`px-4 py-3 rounded-2xl max-w-[85%] ${
                         message.role === 'user'
                           ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white'
-                          : 'bg-slate-100 text-slate-900'
+                          : 'text-white'
                       }`}
+                      style={message.role === 'assistant' ? { backgroundColor: '#4198AC' } : {}}
                     >
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">
                         {message.content}
@@ -323,8 +255,11 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
                     <Bot className="w-5 h-5 text-slate-600" />
                   </div>
                   <div className="flex-1 items-start flex flex-col">
-                    <div className="px-4 py-3 rounded-2xl bg-slate-100">
-                      <span className="text-sm text-slate-500">来访者正在输入</span>
+                    <div
+                      className="px-4 py-3 rounded-2xl text-white"
+                      style={{ backgroundColor: '#4198AC' }}
+                    >
+                      <span className="text-sm">来访者正在输入</span>
                       <span className="typing-indicator">
                         <span className="typing-dot"></span>
                         <span className="typing-dot"></span>
@@ -356,7 +291,8 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
                   <Button
                     onClick={handleSend}
                     disabled={!input.trim()}
-                    className="h-[60px] px-6 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300"
+                    className="h-[60px] px-6 text-white disabled:bg-slate-300 hover:opacity-90"
+                    style={{ backgroundColor: '#7BC0CD' }}
                   >
                     <Send className="w-4 h-4 mr-2" />
                     发送

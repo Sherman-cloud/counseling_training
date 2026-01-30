@@ -7,17 +7,17 @@ interface VisitorStatusProps {
 }
 
 const stageColors = {
-  '愤怒': '#ef4444',
-  '怀疑': '#f97316', 
-  '压抑': '#eab308',
-  '开放': '#22c55e',
-  '平和': '#3b82f6',
-  '欣喜': '#a855f7',
-  '低迷': '#64748b',
-  '失眠': '#8b5cf6',
-  '焦虑': '#f59e0b',
-  '悲伤': '#3b82f6',
-  '平静': '#10b981'
+  '愤怒': '#ED8D5A',
+  '怀疑': '#EA9E58',
+  '压抑': '#ECB66C',
+  '开放': '#7BC0CD',
+  '平和': '#BFDFD2',
+  '欣喜': '#7BC0CD',
+  '低迷': '#51999F',
+  '失眠': '#51999F',
+  '焦虑': '#ECB66C',
+  '悲伤': '#4198AC',
+  '平静': '#BFDFD2'
 };
 
 const generateColorForLabel = (label: string): string => {
@@ -104,7 +104,7 @@ export function VisitorStatus({ chartData }: VisitorStatusProps) {
         {/* 对话阶段 */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-blue-600" />
+            <Activity className="w-4 h-4" style={{ color: '#4198AC' }} />
             <h3 className="font-medium text-slate-900">对话阶段 (Timeline)</h3>
           </div>
           <div className="bg-slate-50 rounded-xl p-4">
@@ -112,8 +112,8 @@ export function VisitorStatus({ chartData }: VisitorStatusProps) {
               <AreaChart data={emotionTimelineData}>
                 <defs>
                   <linearGradient id="colorEmotion" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#4198AC" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#4198AC" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -132,7 +132,7 @@ export function VisitorStatus({ chartData }: VisitorStatusProps) {
                 <Area
                   type="monotone"
                   dataKey="value"
-                  stroke="#3b82f6"
+                  stroke="#4198AC"
                   strokeWidth={2}
                   fill="url(#colorEmotion)"
                 />
@@ -145,7 +145,7 @@ export function VisitorStatus({ chartData }: VisitorStatusProps) {
         {/* 情绪流变 Timeline */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <Brain className="w-4 h-4 text-purple-600" />
+            <Brain className="w-4 h-4" style={{ color: '#51999F' }} />
             <h3 className="font-medium text-slate-900">情绪流变 (Timeline)</h3>
           </div>
           <div className="bg-slate-50 rounded-xl p-4">
@@ -189,7 +189,7 @@ export function VisitorStatus({ chartData }: VisitorStatusProps) {
         {/* 压力水平 */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <Gauge className="w-4 h-4 text-red-600" />
+            <Gauge className="w-4 h-4" style={{ color: '#EA9E58' }} />
             <h3 className="font-medium text-slate-900">压力水平</h3>
           </div>
           <div className="bg-slate-50 rounded-xl p-4">
@@ -197,8 +197,8 @@ export function VisitorStatus({ chartData }: VisitorStatusProps) {
               <AreaChart data={stressData}>
                 <defs>
                   <linearGradient id="colorStress" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#EA9E58" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#EA9E58" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -213,12 +213,12 @@ export function VisitorStatus({ chartData }: VisitorStatusProps) {
                   axisLine={{ stroke: '#cbd5e1' }}
                   label={{ value: '压力值', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#64748b' } }}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#ef4444" 
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#EA9E58"
                   strokeWidth={2}
-                  fill="url(#colorStress)" 
+                  fill="url(#colorStress)"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -229,7 +229,7 @@ export function VisitorStatus({ chartData }: VisitorStatusProps) {
         {/* 情绪强度 */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-amber-600" />
+            <TrendingUp className="w-4 h-4" style={{ color: '#ECB66C' }} />
             <h3 className="font-medium text-slate-900">情绪强度</h3>
           </div>
           <div className="bg-slate-50 rounded-xl p-4">
@@ -237,8 +237,8 @@ export function VisitorStatus({ chartData }: VisitorStatusProps) {
               <AreaChart data={emotionIntensityData}>
                 <defs>
                   <linearGradient id="colorIntensity" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#ECB66C" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#ECB66C" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -253,12 +253,12 @@ export function VisitorStatus({ chartData }: VisitorStatusProps) {
                   axisLine={{ stroke: '#cbd5e1' }}
                   label={{ value: '情绪度', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#64748b' } }}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#f59e0b" 
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#ECB66C"
                   strokeWidth={2}
-                  fill="url(#colorIntensity)" 
+                  fill="url(#colorIntensity)"
                 />
               </AreaChart>
             </ResponsiveContainer>
