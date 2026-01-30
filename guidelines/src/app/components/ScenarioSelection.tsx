@@ -9,6 +9,14 @@ interface Scenario {
   goal: string;
   color: string;
   icon: React.ReactNode;
+  // 来访者档案信息
+  visitorProfile?: {
+    name: string;
+    age: string;
+    problem: string;
+    defense: string;
+    trainingGoal: string;
+  };
 }
 
 const scenarios: Scenario[] = [
@@ -19,7 +27,14 @@ const scenarios: Scenario[] = [
     description: '你将见到一位刚来到新单位、适应新任务有困难的求助者，目标是理解他们的感受，倾听他们的困扰...',
     goal: '目标: 建立专业帮助关系，通过倾听和提问，展现以来访者为中心的态度，在互动中建立初步连接',
     color: '#71717a',
-    icon: <MessageSquare className="w-6 h-6" />
+    icon: <MessageSquare className="w-6 h-6" />,
+    visitorProfile: {
+      name: '小妍（大学生，20岁）',
+      age: '20岁',
+      problem: '睡眠质量差，人际关系困扰',
+      defense: '高阻抗/高度理性化。她倾向于否认情绪，将心理痛苦归因于外部琐事或生理不适。',
+      trainingGoal: '面对一位极力维持"表面平静"的来访者，请尝试突破她的逻辑防御，建立安全信任的咨访同盟，引导她从"抱怨室友"转向"自我觉察"。'
+    }
   },
   {
     id: 2,
