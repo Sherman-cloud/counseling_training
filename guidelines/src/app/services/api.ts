@@ -107,7 +107,9 @@ export class DifyApiService {
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25000); // 25秒超时
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60秒超时
+
+        console.log(`API调用 (尝试 ${attempt + 1}/${retries + 1}):`, { apiUrl: config.url, message: message.substring(0, 50) + '...' });
 
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -124,12 +126,17 @@ export class DifyApiService {
 
         clearTimeout(timeoutId);
 
+        console.log(`API响应状态 (尝试 ${attempt + 1}):`, response.status);
+
         if (!response.ok) {
           const errorText = await response.text();
+          console.error(`API错误响应 (尝试 ${attempt + 1}):`, errorText);
           throw new Error(`API请求失败: ${response.status} ${errorText}`);
         }
 
-        return await response.json();
+        const data = await response.json();
+        console.log(`API调用成功 (尝试 ${attempt + 1}):`, data);
+        return data;
       } catch (error) {
         console.warn(`API调用失败 (尝试 ${attempt + 1}/${retries + 1}):`, error);
 
@@ -393,6 +400,17 @@ export class DifyApiService {
               evaluationData = parsed as SupervisorEvaluation;
               console.log('成功解析督导数据(直接格式):', evaluationData);
             }
+
+            // 合并外层JSON的胜任力维度字段（如果存在）
+            if (outerJson && evaluationData) {
+              const competencyFields = ['Professionalism', 'Relational', 'Science', 'Application', 'Education', 'Systems'];
+              competencyFields.forEach(field => {
+                if (outerJson[field] !== undefined) {
+                  (evaluationData as any)[field] = outerJson[field];
+                  console.log(`添加胜任力维度 ${field}:`, outerJson[field]);
+                }
+              });
+            }
           } catch (e) {
             console.log('解析提取的JSON失败:', e);
           }
@@ -437,6 +455,17 @@ export class DifyApiService {
                   console.log('从嵌套的 reply 中提取到督导数据:', evaluationData);
                 }
               }
+            }
+
+            // 合并外层JSON的胜任力维度字段（如果存在）
+            if (parsed && evaluationData) {
+              const competencyFields = ['Professionalism', 'Relational', 'Science', 'Application', 'Education', 'Systems'];
+              competencyFields.forEach(field => {
+                if (parsed[field] !== undefined) {
+                  (evaluationData as any)[field] = parsed[field];
+                  console.log(`添加胜任力维度 ${field}:`, parsed[field]);
+                }
+              });
             }
           } catch (e) {
             console.log('从文本提取解析失败:', e);
