@@ -6,6 +6,20 @@ interface VisitorStatusProps {
   chartData: ChartData | null;
 }
 
+// 阶段名称映射
+const stageNames: Record<number, string> = {
+  1: '建立关系',
+  2: '情绪/问题叙述',
+  3: '探索情绪与想法',
+  4: '洞察',
+  5: '深度处理',
+  6: '行动',
+  7: '抵抗 / 防御',
+  8: '冲突回避',
+  9: '反刍',
+  10: '突破前兆'
+};
+
 const stageColors = {
   '愤怒': '#ED8D5A',
   '怀疑': '#EA9E58',
@@ -139,7 +153,11 @@ export function VisitorStatus({ chartData }: VisitorStatusProps) {
                   label={{ value: '阶段', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: '#64748b' } }}
                 />
                 <Tooltip
-                  formatter={(value: number, name: string) => [value, 'stage']}
+                  formatter={(value: number, name: string) => {
+                    const stageNum = value as number;
+                    const stageName = stageNames[stageNum] || `阶段 ${stageNum}`;
+                    return [stageName, ''];
+                  }}
                 />
                 <Area
                   type="monotone"
