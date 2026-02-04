@@ -33,6 +33,33 @@ interface ChartData {
   emotion_curve?: Array<{ turn: number; value: number }>;
 }
 
+// 完整督导记录（用于最后综合评价）
+interface FullSupervisorRecord {
+  轮次: number;
+  natural_language_feedback: string;
+  structured_output: {
+    综合得分: number;
+    总体评价: string;
+    建议: string;
+    跳步判断: {
+      是否跳步: boolean;
+      跳步类型: string;
+      督导建议: string;
+    };
+  };
+}
+
+// 胜任力维度（用于雷达图）
+interface CompetencyScores {
+  Professionalism?: number;
+  Relational?: number;
+  Science?: number;
+  Application?: number;
+  Education?: number;
+  Systems?: number;
+}
+
+// 本轮评价（显示在界面）
 interface SupervisorEvaluation {
   综合得分: number;
   总体评价: string;
@@ -43,13 +70,16 @@ interface SupervisorEvaluation {
     督导建议: string;
   };
   natural_language_feedback?: string;
-  // 六个胜任力维度
-  Professionalism?: number;
-  Relational?: number;
-  Science?: number;
-  Application?: number;
-  Education?: number;
-  Systems?: number;
+}
+
+// 督导API完整响应
+interface SupervisorResponse {
+  // 完整督导记录（累积保存）
+  fullRecord?: FullSupervisorRecord;
+  // 本轮评价（显示在界面）
+  evaluation: SupervisorEvaluation;
+  // 胜任力维度（用于雷达图）
+  competencyScores: CompetencyScores;
 }
 
 const getApiConfig = () => {
@@ -85,6 +115,12 @@ const API_CONFIG = getApiConfig();
 export class DifyApiService {
   private visitorConversationId: string | null = null;
   private supervisorConversationId: string | null = null;
+  private fullSupervisorRecords: FullSupervisorRecord[] = [];  // 存储完整督导记录
+
+  // 获取所有完整督导记录（用于最后的综合评价）
+  getFullSupervisorRecords(): FullSupervisorRecord[] {
+    return this.fullSupervisorRecords;
+  }
 
   private async callDifyAPI(
     config: { url: string; key: string },
@@ -320,7 +356,7 @@ export class DifyApiService {
     return { text: visitorText, chartData, opennessLevel };
   }
 
-  async callSupervisorAgent(message: string, conversationHistory: Array<{ sender: string; content: string }>, chartData: ChartData | null): Promise<SupervisorEvaluation> {
+  async callSupervisorAgent(message: string, conversationHistory: Array<{ sender: string; content: string }>, chartData: ChartData | null): Promise<SupervisorResponse> {
     let historyText = '【对话历史（包含来访者情绪、阶段、压力等）】\n';
 
     if (conversationHistory.length === 0) {
@@ -348,124 +384,108 @@ export class DifyApiService {
       let cleanAnswer = response.answer.trim();
       console.log('督导原始响应:', cleanAnswer);
 
-      let evaluationData: SupervisorEvaluation | null = null;
-
-      // 第一步：尝试解析外层 JSON
+      // 尝试解析外层 JSON
       let outerJson: any = null;
       try {
         outerJson = JSON.parse(cleanAnswer);
       } catch (e) {
-        console.log('无法解析外层JSON，尝试直接从文本提取');
+        console.log('无法解析外层JSON，尝试从文本提取');
       }
 
-      let replyContent = '';
+      // 解析结果
+      let fullRecord: FullSupervisorRecord | null = null;
+      let evaluationData: SupervisorEvaluation | null = null;
+      let competencyScores: CompetencyScores = {};
 
-      // 从外层JSON中获取 reply 字段
+      // 从外层JSON中提取数据
       if (outerJson) {
-        if (outerJson.result && outerJson.result.reply) {
-          replyContent = outerJson.result.reply;
-          console.log('格式1: 从 result.reply 获取内容');
-        } else if (outerJson.reply) {
-          replyContent = outerJson.reply;
-          console.log('格式2: 从 reply 获取内容');
-        } else if (outerJson.综合得分 !== undefined || outerJson.总体评价 || outerJson.建议 || outerJson.跳步判断) {
-          evaluationData = outerJson as SupervisorEvaluation;
-          console.log('格式3: 直接包含督导字段');
-        }
-      }
+        // 1. 提取胜任力维度（外层顶层字段）
+        const competencyFields = ['Professionalism', 'Relational', 'Science', 'Application', 'Education', 'Systems'];
+        competencyFields.forEach(field => {
+          if (outerJson[field] !== undefined) {
+            competencyScores[field as keyof CompetencyScores] = outerJson[field];
+            console.log(`提取胜任力维度 ${field}:`, outerJson[field]);
+          }
+        });
 
-      // 第二步：如果有 reply 内容，从中提取督导数据
-      if (replyContent && !evaluationData) {
-        console.log('reply内容:', replyContent.substring(0, 200) + '...');
+        // 2. 从 "本轮评价" 的 reply 字段提取本轮督导数据
+        if (outerJson['本轮评价']) {
+          const currentTurnData = outerJson['本轮评价'];
+          if (currentTurnData.reply) {
+            const extractedJson = this.extractFirstJson(currentTurnData.reply);
+            if (extractedJson) {
+              try {
+                const parsed = JSON.parse(extractedJson);
+                if (parsed.structured_output) {
+                  evaluationData = {
+                    ...parsed.structured_output,
+                    natural_language_feedback: parsed.natural_language_feedback
+                  } as SupervisorEvaluation;
+                  console.log('从本轮评价提取到督导数据:', evaluationData);
 
-        // 使用 extractFirstJson 从 reply 中提取督导数据
-        const extractedJson = this.extractFirstJson(replyContent);
-        if (extractedJson) {
-          console.log('从 reply 中提取到 JSON:', extractedJson.substring(0, 200) + '...');
-          try {
-            const parsed = JSON.parse(extractedJson);
-            // 检查是否有 structured_output 字段（新督导格式）
-            if (parsed.structured_output && (
-              parsed.structured_output.综合得分 !== undefined ||
-              parsed.structured_output.总体评价 ||
-              parsed.structured_output.建议 ||
-              parsed.structured_output.跳步判断
-            )) {
-              evaluationData = {
-                ...parsed.structured_output,
-                natural_language_feedback: parsed.natural_language_feedback
-              } as SupervisorEvaluation;
-              console.log('成功解析督导数据(structured_output格式):', evaluationData);
-            } else if (parsed.综合得分 !== undefined || parsed.总体评价 || parsed.建议 || parsed.跳步判断) {
-              evaluationData = parsed as SupervisorEvaluation;
-              console.log('成功解析督导数据(直接格式):', evaluationData);
-            }
-
-            // 合并外层JSON的胜任力维度字段（如果存在）
-            if (outerJson && evaluationData) {
-              const competencyFields = ['Professionalism', 'Relational', 'Science', 'Application', 'Education', 'Systems'];
-              competencyFields.forEach(field => {
-                if (outerJson[field] !== undefined) {
-                  (evaluationData as any)[field] = outerJson[field];
-                  console.log(`添加胜任力维度 ${field}:`, outerJson[field]);
+                  // 如果有轮次信息，保存完整督导记录
+                  if (parsed.轮次 !== undefined) {
+                    fullRecord = {
+                      轮次: parsed.轮次,
+                      natural_language_feedback: parsed.natural_language_feedback,
+                      structured_output: parsed.structured_output
+                    };
+                    this.fullSupervisorRecords.push(fullRecord);
+                    console.log('保存完整督导记录, 轮次:', parsed.轮次);
+                  }
                 }
-              });
+              } catch (e) {
+                console.log('解析本轮评价失败:', e);
+              }
             }
-          } catch (e) {
-            console.log('解析提取的JSON失败:', e);
+          }
+        }
+
+        // 如果没有找到本轮评价，尝试直接从 reply 字段提取（兼容旧格式）
+        if (!evaluationData && outerJson.reply) {
+          const extractedJson = this.extractFirstJson(outerJson.reply);
+          if (extractedJson) {
+            try {
+              const parsed = JSON.parse(extractedJson);
+              if (parsed.structured_output) {
+                evaluationData = {
+                  ...parsed.structured_output,
+                  natural_language_feedback: parsed.natural_language_feedback
+                } as SupervisorEvaluation;
+                console.log('从 reply 提取到督导数据:', evaluationData);
+
+                if (parsed.轮次 !== undefined) {
+                  fullRecord = {
+                    轮次: parsed.轮次,
+                    natural_language_feedback: parsed.natural_language_feedback,
+                    structured_output: parsed.structured_output
+                  };
+                  this.fullSupervisorRecords.push(fullRecord);
+                  console.log('保存完整督导记录, 轮次:', parsed.轮次);
+                }
+              }
+            } catch (e) {
+              console.log('解析 reply 失败:', e);
+            }
           }
         }
       }
 
-      // 第三步：如果还没找到，尝试从整个响应文本中提取
-      if (!evaluationData && !outerJson) {
+      // 如果还没找到，尝试从整个文本提取（兼容旧格式）
+      if (!evaluationData) {
         const extractedJson = this.extractFirstJson(cleanAnswer);
         if (extractedJson) {
           try {
             const parsed = JSON.parse(extractedJson);
-            // 检查是否有 structured_output 字段（新督导格式）
-            if (parsed.structured_output && (
-              parsed.structured_output.综合得分 !== undefined ||
-              parsed.structured_output.总体评价 ||
-              parsed.structured_output.建议 ||
-              parsed.structured_output.跳步判断
-            )) {
+            if (parsed.structured_output) {
               evaluationData = {
                 ...parsed.structured_output,
                 natural_language_feedback: parsed.natural_language_feedback
               } as SupervisorEvaluation;
-              console.log('从文本中提取到督导数据(structured_output格式):', evaluationData);
-            } else if (parsed.综合得分 !== undefined || parsed.总体评价 || parsed.建议 || parsed.跳步判断) {
+              console.log('从文本提取到督导数据:', evaluationData);
+            } else if (parsed.综合得分 !== undefined) {
               evaluationData = parsed as SupervisorEvaluation;
-              console.log('从文本中提取到督导数据(直接格式):', evaluationData);
-            } else if (parsed.reply) {
-              // 如果提取的是 {"reply": "..."}，再从 reply 中提取
-              const innerJson = this.extractFirstJson(parsed.reply);
-              if (innerJson) {
-                const innerParsed = JSON.parse(innerJson);
-                // 检查 innerParsed 是否有 structured_output
-                if (innerParsed.structured_output) {
-                  evaluationData = {
-                    ...innerParsed.structured_output,
-                    natural_language_feedback: innerParsed.natural_language_feedback
-                  } as SupervisorEvaluation;
-                  console.log('从嵌套 reply 的 structured_output 中提取到督导数据:', evaluationData);
-                } else {
-                  evaluationData = innerParsed as SupervisorEvaluation;
-                  console.log('从嵌套的 reply 中提取到督导数据:', evaluationData);
-                }
-              }
-            }
-
-            // 合并外层JSON的胜任力维度字段（如果存在）
-            if (parsed && evaluationData) {
-              const competencyFields = ['Professionalism', 'Relational', 'Science', 'Application', 'Education', 'Systems'];
-              competencyFields.forEach(field => {
-                if (parsed[field] !== undefined) {
-                  (evaluationData as any)[field] = parsed[field];
-                  console.log(`添加胜任力维度 ${field}:`, parsed[field]);
-                }
-              });
+              console.log('直接使用督导数据:', evaluationData);
             }
           } catch (e) {
             console.log('从文本提取解析失败:', e);
@@ -474,8 +494,6 @@ export class DifyApiService {
       }
 
       if (evaluationData) {
-        console.log('处理前的督导数据:', JSON.stringify(evaluationData, null, 2));
-
         // 确保所有字段都存在
         if (evaluationData.综合得分 === undefined) evaluationData.综合得分 = 3;
         if (evaluationData.总体评价 === undefined || evaluationData.总体评价 === '') evaluationData.总体评价 = '暂无评价';
@@ -486,23 +504,31 @@ export class DifyApiService {
           督导建议: "无跳步问题"
         };
 
-        console.log('最终督导数据:', evaluationData);
-        console.log('最终督导数据( stringify):', JSON.stringify(evaluationData, null, 2));
-        return evaluationData;
+        console.log('最终督导评价:', evaluationData);
+        console.log('胜任力维度:', competencyScores);
+
+        return {
+          fullRecord: fullRecord || undefined,
+          evaluation: evaluationData,
+          competencyScores: competencyScores
+        };
       } else {
         throw new Error('无法解析督导数据格式');
       }
     } catch (error) {
       console.error('督导解析错误:', error);
       return {
-        综合得分: 3,
-        总体评价: response.answer,
-        建议: "请继续关注来访者的需求和感受。",
-        跳步判断: {
-          是否跳步: false,
-          跳步类型: "解析错误",
-          督导建议: "评价格式解析出现问题，请检查API响应"
-        }
+        evaluation: {
+          综合得分: 3,
+          总体评价: response.answer,
+          建议: "请继续关注来访者的需求和感受。",
+          跳步判断: {
+            是否跳步: false,
+            跳步类型: "解析错误",
+            督导建议: "评价格式解析出现问题，请检查API响应"
+          }
+        },
+        competencyScores: {}
       };
     }
   }
@@ -510,6 +536,7 @@ export class DifyApiService {
   resetConversations() {
     this.visitorConversationId = null;
     this.supervisorConversationId = null;
+    this.fullSupervisorRecords = [];  // 清空完整督导记录
   }
 }
 

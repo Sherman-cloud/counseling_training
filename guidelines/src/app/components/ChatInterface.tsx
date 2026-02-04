@@ -6,7 +6,7 @@ import { VisitorStatus } from '@/app/components/VisitorStatus';
 import { SupervisorFeedback } from '@/app/components/SupervisorFeedback';
 import { difyApiService } from '@/app/services/api';
 import type { Scenario } from '@/app/components/ScenarioSelection';
-import type { ChartData, SupervisorEvaluation } from '@/app/services/api';
+import type { ChartData, SupervisorEvaluation, CompetencyScores } from '@/app/services/api';
 
 interface Message {
   id: number;
@@ -99,6 +99,7 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
   const [isLoading, setIsLoading] = useState(false);
   const [chartData, setChartData] = useState<ChartData | null>(null);
   const [supervisorEvaluations, setSupervisorEvaluations] = useState<Array<SupervisorEvaluation & { turn: number }>>([]);
+  const [competencyScores, setCompetencyScores] = useState<CompetencyScores>({});
   const [hasStarted, setHasStarted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -107,6 +108,7 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
     setInput('');
     setChartData(null);
     setSupervisorEvaluations([]);
+    setCompetencyScores({});
     setHasStarted(true);
     setIsLoading(true);
 
@@ -167,7 +169,21 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
         const supervisorResponse = await difyApiService.callSupervisorAgent(input, conversationHistory, chartData);
         const currentTurn = Math.floor((messages.length + 1) / 2);
         console.log('督导数据收到:', supervisorResponse);
-        setSupervisorEvaluations(prev => [...prev, { ...supervisorResponse, turn: currentTurn }]);
+
+        // 更新督导评价列表
+        setSupervisorEvaluations(prev => [...prev, { ...supervisorResponse.evaluation, turn: currentTurn }]);
+
+        // 累积胜任力维度（取平均值或保留最新）
+        setCompetencyScores(prev => {
+          const newScores = { ...prev };
+          const competencyFields = ['Professionalism', 'Relational', 'Science', 'Application', 'Education', 'Systems'] as const;
+          competencyFields.forEach(field => {
+            if (supervisorResponse.competencyScores[field] !== undefined) {
+              newScores[field] = supervisorResponse.competencyScores[field];
+            }
+          });
+          return newScores;
+        });
       } catch (supervisorError) {
         console.error('督导API调用失败，但不影响来访者API:', supervisorError);
       }
