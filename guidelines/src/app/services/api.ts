@@ -443,24 +443,26 @@ export class DifyApiService {
   }
 
   async callSupervisorAgent(message: string, conversationHistory: Array<{ sender: string; content: string }>, chartData: ChartData | null): Promise<SupervisorResponse> {
-    let historyText = '【对话历史（包含来访者情绪、阶段、压力等）】\n';
+    // 简化请求内容，只发送当前轮消息
+    // Dify 的 conversation 功能会自动保存历史
+    let queryText = `【咨询师本轮回复】\n${message}\n`;
 
-    if (conversationHistory.length === 0) {
-      historyText += '（暂无历史对话）\n';
-    } else {
-      conversationHistory.forEach(msg => {
-        historyText += `${msg.sender}: ${msg.content}\n`;
-      });
-    }
-
-    historyText += `\n【咨询师本轮回复】\n${message}\n`;
-
+    // 只传递最新的图表数据摘要（不是完整历史）
     if (chartData) {
-      const chartDataJson = JSON.stringify(chartData, null, 2);
-      historyText += `\n【结构化数据】\n${chartDataJson}`;
+      // 只取最后一个数据点
+      const latestEmotion = chartData.session_emotion_timeline?.[chartData.session_emotion_timeline.length - 1];
+      const latestStress = chartData.stress_curve?.[chartData.stress_curve.length - 1];
+      const latestStage = chartData.conversation_stage_curve?.[chartData.conversation_stage_curve.length - 1];
+
+      if (latestEmotion || latestStress || latestStage) {
+        queryText += `\n【当前状态】\n`;
+        if (latestEmotion) queryText += `情绪: ${latestEmotion.label}\n`;
+        if (latestStress) queryText += `压力: ${latestStress.value}\n`;
+        if (latestStage) queryText += `阶段: ${latestStage.stage}\n`;
+      }
     }
 
-    const response = await this.callDifyAPI(API_CONFIG.supervisor, historyText, this.supervisorConversationId);
+    const response = await this.callDifyAPI(API_CONFIG.supervisor, queryText, this.supervisorConversationId);
 
     if (response.conversation_id) {
       this.supervisorConversationId = response.conversation_id;
