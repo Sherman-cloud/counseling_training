@@ -168,6 +168,7 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
     };
 
     setMessages(prev => [...prev, newUserMessage]);
+    const currentInput = input;
     setInput('');
     setIsLoading(true);
 
@@ -177,56 +178,68 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
         content: m.content
       }));
 
-      // 先调用督导API，如果失败则继续调用来访者API
-      try {
-        const supervisorResponse = await difyApiService.callSupervisorAgent(input, conversationHistory, chartData);
-        const currentTurn = Math.floor((messages.length + 1) / 2);
-        console.log('督导数据收到:', supervisorResponse);
+      const currentTurn = Math.floor((messages.length + 1) / 2);
+
+      // 同时调用督导API和来访者API（并行执行）
+      const [supervisorResponse, visitorResponse] = await Promise.allSettled([
+        difyApiService.callSupervisorAgent(currentInput, conversationHistory, chartData),
+        difyApiService.callVisitorAgent(currentInput)
+      ]);
+
+      // 处理督导API响应
+      if (supervisorResponse.status === 'fulfilled') {
+        console.log('督导数据收到:', supervisorResponse.value);
 
         // 保存本轮记录用于评价报告
         const turnRecord: SessionTurnRecord = {
           turn: currentTurn,
-          counselorMessage: input,
+          counselorMessage: currentInput,
           visitorMessage: messages.filter(m => m.role === 'assistant').pop()?.content || '',
-          evaluation: supervisorResponse.evaluation,
-          score: supervisorResponse.evaluation.综合得分,
-          feedback: supervisorResponse.evaluation.natural_language_feedback || supervisorResponse.evaluation.总体评价
+          evaluation: supervisorResponse.value.evaluation,
+          score: supervisorResponse.value.evaluation.综合得分,
+          feedback: supervisorResponse.value.evaluation.natural_language_feedback || supervisorResponse.value.evaluation.总体评价
         };
         setSessionTurnRecords(prev => [...prev, turnRecord]);
 
-        // 只保留当前轮的督导评价（不累积历史）
-        setSupervisorEvaluations([{ ...supervisorResponse.evaluation, turn: currentTurn }]);
+        // 累积督导评价（保留历史，按轮次倒序排列）
+        setSupervisorEvaluations(prev => {
+          const newEvaluations = prev.filter(e => e.turn !== currentTurn);
+          return [...newEvaluations, { ...supervisorResponse.value.evaluation, turn: currentTurn }]
+            .sort((a, b) => b.turn - a.turn);
+        });
 
         // 累积胜任力维度（取平均值或保留最新）
-        setCompetencyScores(prev => {
-          const newScores = { ...prev };
+        setCompetencyScores(prevScores => {
+          const newScores = { ...prevScores };
           const competencyFields = ['Professionalism', 'Relational', 'Science', 'Application', 'Education', 'Systems'] as const;
           competencyFields.forEach(field => {
-            if (supervisorResponse.competencyScores[field] !== undefined) {
-              newScores[field] = supervisorResponse.competencyScores[field];
+            if (supervisorResponse.value.competencyScores[field] !== undefined) {
+              newScores[field] = supervisorResponse.value.competencyScores[field];
             }
           });
           return newScores;
         });
-      } catch (supervisorError) {
-        console.error('督导API调用失败，但不影响来访者API:', supervisorError);
+      } else {
+        console.error('督导API调用失败，但不影响来访者API:', supervisorResponse.reason);
       }
 
-      // 再调用来访者API
-      const visitorResponse = await difyApiService.callVisitorAgent(input);
+      // 处理来访者API响应
+      if (visitorResponse.status === 'fulfilled') {
+        const aiResponse: Message = {
+          id: messages.length + 2,
+          role: 'assistant',
+          content: visitorResponse.value.text,
+          timestamp: new Date(),
+          openness: visitorResponse.value.opennessLevel ?? 4
+        };
 
-      const aiResponse: Message = {
-        id: messages.length + 2,
-        role: 'assistant',
-        content: visitorResponse.text,
-        timestamp: new Date(),
-        openness: visitorResponse.opennessLevel ?? 4
-      };
+        setMessages(prev => [...prev, aiResponse]);
 
-      setMessages(prev => [...prev, aiResponse]);
-
-      if (visitorResponse.chartData) {
-        setChartData(visitorResponse.chartData);
+        if (visitorResponse.value.chartData) {
+          setChartData(visitorResponse.value.chartData);
+        }
+      } else {
+        throw visitorResponse.reason;
       }
     } catch (error) {
       console.error('Failed to send message:', error);
