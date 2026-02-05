@@ -1,15 +1,26 @@
-import { Download, ArrowLeft, Star, AlertCircle, Award, CheckCircle2 } from 'lucide-react';
+import { Download, ArrowLeft, Star, AlertCircle, Award, CheckCircle2, TrendingUp, TrendingDown, Sparkles, Wrench } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
-import type { OverallEvaluation } from '@/app/services/api';
+import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import type { OverallEvaluation, ChartData } from '@/app/services/api';
 
 interface EvaluationReportProps {
   scenarioName: string;
   overallEvaluation?: OverallEvaluation | null;
   competencyScores?: Record<string, number>;
   conversationTurns?: number;
+  sessionTurnRecords?: SessionTurnRecord[];
+  allChartData?: ChartData | null;
   onStartNew: () => void;
   onBackToScenarios: () => void;
+}
+
+interface SessionTurnRecord {
+  turn: number;
+  counselorMessage: string;
+  visitorMessage: string;
+  evaluation: any;
+  score: number;
+  feedback: string;
 }
 
 interface CompetencyScores {
@@ -26,7 +37,9 @@ const colors = {
   primary: '#7BC0CD',
   dark: '#4198AC',
   light: '#E8F4F6',
-  bg: '#F8FAFC'
+  bg: '#F8FAFC',
+  success: '#10B981',
+  warning: '#F59E0B'
 };
 
 const competencyDimensions = [
@@ -46,11 +59,287 @@ const prepareRadarData = (scores: CompetencyScores) => {
   }));
 };
 
+// 咨询质量趋势图组件
+function SessionFlowChart({ sessionTurnRecords }: { sessionTurnRecords: SessionTurnRecord[] }) {
+  // 准备趋势图数据
+  const trendData = sessionTurnRecords.map(record => ({
+    轮次: `第${record.turn}轮`,
+    得分: record.score,
+    turn: record.turn
+  }));
+
+  return (
+    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+      <h2 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <TrendingUp className="w-4 h-4" style={{ color: colors.dark }} />
+        咨询质量趋势
+      </h2>
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart data={trendData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis
+            dataKey="轮次"
+            tick={{ fill: '#64748b', fontSize: 11 }}
+            stroke="#94a3b8"
+          />
+          <YAxis
+            domain={[0, 10]}
+            tick={{ fill: '#64748b', fontSize: 11 }}
+            stroke="#94a3b8"
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: 'white',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              fontSize: '12px'
+            }}
+          />
+          <Line
+            type="monotone"
+            dataKey="得分"
+            stroke={colors.dark}
+            strokeWidth={2}
+            dot={{ fill: colors.primary, r: 4 }}
+            activeDot={{ r: 6, fill: colors.dark }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// 关键帧诊断组件
+function KeyMomentsAnalysis({ sessionTurnRecords }: { sessionTurnRecords: SessionTurnRecord[] }) {
+  if (sessionTurnRecords.length === 0) {
+    return (
+      <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+        <h2 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+          <Sparkles className="w-4 h-4" style={{ color: colors.dark }} />
+          关键帧诊断
+        </h2>
+        <p className="text-sm text-slate-500 text-center py-8">暂无对话记录</p>
+      </div>
+    );
+  }
+
+  // 找出最高分和最低分的轮次
+  const sortedByScore = [...sessionTurnRecords].sort((a, b) => b.score - a.score);
+  const bestMoment = sortedByScore[0];
+  const worstMoment = sortedByScore[sortedByScore.length - 1];
+
+  // 提取表扬部分（简单逻辑：取前半部分作为表扬）
+  const extractPraise = (feedback: string) => {
+    if (!feedback) return '表现良好';
+    // 尝试找到"建议"等关键词，之前的内容作为表扬
+    const suggestIndex = feedback.indexOf('建议');
+    if (suggestIndex > 0) {
+      return feedback.substring(0, suggestIndex).trim();
+    }
+    return feedback.substring(0, Math.min(100, feedback.length));
+  };
+
+  // 提取建议部分
+  const extractSuggestion = (feedback: string) => {
+    if (!feedback) return '继续努力';
+    const suggestIndex = feedback.indexOf('建议');
+    if (suggestIndex > 0) {
+      return feedback.substring(suggestIndex).trim();
+    }
+    return feedback.substring(Math.min(100, feedback.length));
+  };
+
+  return (
+    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+      <h2 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <Sparkles className="w-4 h-4" style={{ color: colors.dark }} />
+        关键帧诊断
+      </h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* 高光时刻 */}
+        <div className="rounded-lg p-4 border-2" style={{ backgroundColor: '#F0FDF4', borderColor: colors.success }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-4 h-4" style={{ color: colors.success }} />
+            <h3 className="text-sm font-semibold" style={{ color: colors.success }}>高光时刻</h3>
+            <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: colors.success, color: 'white' }}>
+              {bestMoment.score.toFixed(1)}分
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs text-slate-500 mb-1">你的话术</p>
+              <p className="text-sm text-slate-700 bg-white/70 rounded p-2 leading-relaxed">
+                {bestMoment.counselorMessage}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-slate-500 mb-1">督导反馈</p>
+              <p className="text-sm text-slate-700 leading-relaxed">
+                {extractPraise(bestMoment.feedback)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* 提升空间 */}
+        <div className="rounded-lg p-4 border-2" style={{ backgroundColor: '#FEF3C7', borderColor: colors.warning }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Wrench className="w-4 h-4" style={{ color: colors.warning }} />
+            <h3 className="text-sm font-semibold" style={{ color: colors.warning }}>提升空间</h3>
+            <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: colors.warning, color: 'white' }}>
+              {worstMoment.score.toFixed(1)}分
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs text-slate-500 mb-1">你的话术</p>
+              <p className="text-sm text-slate-700 bg-white/70 rounded p-2 leading-relaxed line-through decoration-red-400 decoration-1">
+                {worstMoment.counselorMessage}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-slate-500 mb-1">督导建议</p>
+              <p className="text-sm text-slate-700 leading-relaxed">
+                {extractSuggestion(worstMoment.feedback)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 来访者状态图表组件
+function VisitorStatusCharts({ allChartData }: { allChartData: ChartData | null }) {
+  if (!allChartData) return null;
+
+  // 阶段名称映射
+  const stageNames: Record<number, string> = {
+    1: '初始阶段',
+    2: '深入阶段',
+    3: '工作阶段',
+    4: '结束阶段'
+  };
+
+  // 对话阶段曲线数据
+  const stageData = allChartData.conversation_stage_curve?.map(d => ({
+    轮次: d.dialogue_count,
+    阶段: stageNames[d.stage] || `阶段${d.stage}`
+  })) || [];
+
+  // 情绪时间线数据
+  const emotionData = allChartData.session_emotion_timeline?.map(d => ({
+    轮次: d.turn,
+    情绪: d.label
+  })) || [];
+
+  // 压力曲线数据
+  const stressData = allChartData.stress_curve?.map(d => ({
+    轮次: d.turn,
+    压力: d.value
+  })) || [];
+
+  // 情绪曲线数据
+  const emotionCurveData = allChartData.emotion_curve?.map(d => ({
+    轮次: d.turn,
+    情绪值: d.value
+  })) || [];
+
+  return (
+    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+      <h2 className="text-sm font-semibold text-slate-900 mb-4">来访者状态监控</h2>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* 对话阶段曲线 */}
+        {stageData.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-500 mb-2">对话阶段</p>
+            <ResponsiveContainer width="100%" height={150}>
+              <LineChart data={stageData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="轮次" tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <YAxis tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '11px' }}
+                />
+                <Line type="stepAfter" dataKey="阶段" stroke={colors.primary} strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* 压力曲线 */}
+        {stressData.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-500 mb-2">压力水平</p>
+            <ResponsiveContainer width="100%" height={150}>
+              <LineChart data={stressData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="轮次" tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '11px' }}
+                />
+                <Line type="monotone" dataKey="压力" stroke={colors.dark} strokeWidth={2} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* 情绪时间线 */}
+        {emotionData.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-500 mb-2">情绪状态</p>
+            <div className="h-[150px] overflow-y-auto">
+              <div className="space-y-1">
+                {emotionData.map((d, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <span className="w-12 text-slate-400">第{d.轮次}轮</span>
+                    <span className="px-2 py-0.5 rounded text-white text-xs" style={{ backgroundColor: colors.primary }}>
+                      {d.情绪}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 情绪曲线 */}
+        {emotionCurveData.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-500 mb-2">情绪变化</p>
+            <ResponsiveContainer width="100%" height={150}>
+              <LineChart data={emotionCurveData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="轮次" tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '11px' }}
+                />
+                <Line type="monotone" dataKey="情绪值" stroke="#51999F" strokeWidth={2} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function EvaluationReport({
   scenarioName,
   overallEvaluation,
   competencyScores = {},
   conversationTurns = 0,
+  sessionTurnRecords = [],
+  allChartData = null,
   onStartNew,
   onBackToScenarios
 }: EvaluationReportProps) {
@@ -82,6 +371,7 @@ export function EvaluationReport({
       overallScore: overallScore,
       conversationTurns: conversationTurns,
       competencyScores: competencyScores,
+      sessionTurnRecords: sessionTurnRecords,
       timestamp: new Date().toISOString()
     };
 
@@ -168,6 +458,15 @@ export function EvaluationReport({
             </p>
           </div>
         )}
+
+        {/* 咨询质量趋势图 */}
+        {sessionTurnRecords.length > 0 && <SessionFlowChart sessionTurnRecords={sessionTurnRecords} />}
+
+        {/* 关键帧诊断 */}
+        {sessionTurnRecords.length > 0 && <KeyMomentsAnalysis sessionTurnRecords={sessionTurnRecords} />}
+
+        {/* 来访者状态监控 */}
+        {allChartData && <VisitorStatusCharts allChartData={allChartData} />}
 
         {/* 优劣势 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

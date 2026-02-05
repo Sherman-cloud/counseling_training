@@ -19,7 +19,17 @@ interface Message {
 interface ChatInterfaceProps {
   scenario: Scenario;
   onBack: () => void;
-  onFinish: (evaluation?: OverallEvaluation, scores?: CompetencyScores, turns?: number) => void;
+  onFinish: (evaluation?: OverallEvaluation, scores?: CompetencyScores, turns?: number, sessionRecords?: SessionTurnRecord[], allChartData?: ChartData | null) => void;
+}
+
+// 每轮对话记录（用于评价报告）
+interface SessionTurnRecord {
+  turn: number;
+  counselorMessage: string;
+  visitorMessage: string;
+  evaluation: SupervisorEvaluation;
+  score: number;
+  feedback: string;
 }
 
 function OpeningScreen({ scenario, onStart }: { scenario: Scenario; onStart: () => void }) {
@@ -101,6 +111,7 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
   const [chartData, setChartData] = useState<ChartData | null>(null);
   const [supervisorEvaluations, setSupervisorEvaluations] = useState<Array<SupervisorEvaluation & { turn: number }>>([]);
   const [competencyScores, setCompetencyScores] = useState<CompetencyScores>({});
+  const [sessionTurnRecords, setSessionTurnRecords] = useState<SessionTurnRecord[]>([]); // 保存每轮记录
   const [hasStarted, setHasStarted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -110,6 +121,7 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
     setChartData(null);
     setSupervisorEvaluations([]);
     setCompetencyScores({});
+    setSessionTurnRecords([]); // 清空轮次记录
     setHasStarted(true);
     setIsLoading(true);
 
@@ -171,6 +183,17 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
         const currentTurn = Math.floor((messages.length + 1) / 2);
         console.log('督导数据收到:', supervisorResponse);
 
+        // 保存本轮记录用于评价报告
+        const turnRecord: SessionTurnRecord = {
+          turn: currentTurn,
+          counselorMessage: input,
+          visitorMessage: messages.filter(m => m.role === 'assistant').pop()?.content || '',
+          evaluation: supervisorResponse.evaluation,
+          score: supervisorResponse.evaluation.综合得分,
+          feedback: supervisorResponse.evaluation.natural_language_feedback || supervisorResponse.evaluation.总体评价
+        };
+        setSessionTurnRecords(prev => [...prev, turnRecord]);
+
         // 只保留当前轮的督导评价（不累积历史）
         setSupervisorEvaluations([{ ...supervisorResponse.evaluation, turn: currentTurn }]);
 
@@ -228,16 +251,18 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
       const overallEvaluation = await difyApiService.callOverallEvaluationAPI(competencyScores);
       const currentTurn = Math.floor((messages.length - 1) / 2) + 1;
 
-      // 传递数据给父组件
+      // 传递数据给父组件（包含每轮记录和完整图表数据）
       onFinish(
         overallEvaluation || undefined,
         competencyScores,
-        currentTurn
+        currentTurn,
+        sessionTurnRecords,
+        chartData
       );
     } catch (error) {
       console.error('获取综合评价失败:', error);
       // 即使失败也允许进入评价页面
-      onFinish(undefined, competencyScores, Math.floor((messages.length - 1) / 2) + 1);
+      onFinish(undefined, competencyScores, Math.floor((messages.length - 1) / 2) + 1, sessionTurnRecords, chartData);
     } finally {
       setIsFinishing(false);
     }

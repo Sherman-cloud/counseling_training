@@ -6,6 +6,17 @@ import { EvaluationReport } from '@/app/components/EvaluationReport';
 import type { Scenario } from '@/app/components/ScenarioSelection';
 import type { OverallEvaluation } from '@/app/services/api';
 import type { CompetencyScores } from '@/app/services/api';
+import type { ChartData } from '@/app/services/api';
+
+// 每轮对话记录
+interface SessionTurnRecord {
+  turn: number;
+  counselorMessage: string;
+  visitorMessage: string;
+  evaluation: any;
+  score: number;
+  feedback: string;
+}
 
 type AppState = 'login' | 'scenario-selection' | 'chat' | 'report';
 
@@ -15,6 +26,8 @@ export default function App() {
   const [overallEvaluation, setOverallEvaluation] = useState<OverallEvaluation | null>(null);
   const [competencyScores, setCompetencyScores] = useState<CompetencyScores>({});
   const [conversationTurns, setConversationTurns] = useState(0);
+  const [sessionTurnRecords, setSessionTurnRecords] = useState<SessionTurnRecord[]>([]);
+  const [allChartData, setAllChartData] = useState<ChartData | null>(null);
 
   const handleLogin = () => {
     setAppState('scenario-selection');
@@ -35,10 +48,18 @@ export default function App() {
     setAppState('scenario-selection');
   };
 
-  const handleFinishPractice = (evaluation?: OverallEvaluation, scores?: CompetencyScores, turns?: number) => {
+  const handleFinishPractice = (
+    evaluation?: OverallEvaluation,
+    scores?: CompetencyScores,
+    turns?: number,
+    records?: SessionTurnRecord[],
+    chartData?: ChartData | null
+  ) => {
     if (evaluation) setOverallEvaluation(evaluation);
     if (scores) setCompetencyScores(scores);
     if (turns) setConversationTurns(turns);
+    if (records) setSessionTurnRecords(records);
+    if (chartData) setAllChartData(chartData);
     setAppState('report');
   };
 
@@ -74,6 +95,8 @@ export default function App() {
           overallEvaluation={overallEvaluation}
           competencyScores={competencyScores}
           conversationTurns={conversationTurns}
+          sessionTurnRecords={sessionTurnRecords}
+          allChartData={allChartData}
           onStartNew={handleStartNew}
           onBackToScenarios={handleBackToScenarios}
         />
