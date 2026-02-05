@@ -142,7 +142,8 @@ export class DifyApiService {
     config: { url: string; key: string },
     message: string,
     conversationId: string | null = null,
-    retries = 2
+    retries = 2,
+    timeoutMs = 120000 // 默认120秒超时，督导API需要更长时间
   ): Promise<DifyResponse> {
     const requestBody: ChatMessage = {
       inputs: {},
@@ -159,7 +160,7 @@ export class DifyApiService {
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60秒超时
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
         console.log(`API调用 (尝试 ${attempt + 1}/${retries + 1}):`, { apiUrl: config.url, message: message.substring(0, 50) + '...' });
 
@@ -197,8 +198,8 @@ export class DifyApiService {
           throw new Error(`API调用失败: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
 
-        // 等待一下再重试
-        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        // 等待一下再重试，督导API需要更长的等待时间
+        await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
       }
     }
 
