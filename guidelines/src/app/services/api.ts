@@ -524,7 +524,7 @@ export class DifyApiService {
           }
         }
 
-        // 2. 处理本轮评价 (reply) - 支持混合格式
+        // 2. 处理本轮评价 (reply) - 支持多种混合格式
         if (obj.reply) {
           const replyText = obj.reply;
           console.log('处理reply字段:', replyText.substring(0, 100) + '...');
@@ -540,14 +540,17 @@ export class DifyApiService {
               console.log('从reply直接解析到督导数据:', evaluationData);
             }
           } catch (e) {
-            // reply不是纯JSON，尝试提取其中的JSON部分
-            // 格式可能是: "1. 自然语言反馈：xxx\n\n2. 结构化输出：\n{...}"
+            // reply不是纯JSON，尝试提取其中的结构化输出部分
+            // 支持多种格式：
+            // 格式1: "### 自然语言反馈 \nxxx\n\n### 结构化输出 \n```json\n{...}```"
+            // 格式2: "1. 自然语言反馈：xxx\n\n2. 结构化输出：\n{...}"
+            // 格式3: "自然语言反馈xxx结构化输出{...}"
 
-            // 提取结构化输出部分
-            const structuredOutputMatch = replyText.match(/(?:结构化输出|2\. 结构化输出)[：:]\s*\n*((?:\n?\{[\s\S]*?\})|(?:```json\s*([\s\S]*?)```))/);
-            if (structuredOutputMatch) {
+            // 首先尝试从 markdown 代码块中提取 JSON
+            const markdownJsonMatch = replyText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+            if (markdownJsonMatch) {
               try {
-                const jsonContent = structuredOutputMatch[1] || structuredOutputMatch[2];
+                const jsonContent = markdownJsonMatch[1].trim();
                 const parsed = JSON.parse(jsonContent);
                 if (parsed.综合得分 !== undefined) {
                   evaluationData = {
@@ -562,15 +565,55 @@ export class DifyApiService {
                   };
 
                   // 提取自然语言反馈部分
-                  const feedbackMatch = replyText.match(/(?:自然语言反馈|1\. 自然语言反馈)[：:]\s*\n*(.*?)(?=\n\n2\.|结构化输出|$)/s);
+                  // 匹配 "### 自然语言反馈" 或 "1. 自然语言反馈" 或 "自然语言反馈"
+                  const feedbackMatch = replyText.match(/(?:###\s*|1\.\s*|)(?:自然语言反馈)[：:\s]*\n*(.*?)(?=\n\n###|\n\n\d+\.|\n\n结构化输出|$)/s);
                   if (feedbackMatch) {
-                    evaluationData.natural_language_feedback = feedbackMatch[1].trim();
+                    let feedback = feedbackMatch[1].trim();
+                    // 清理可能的 markdown 标记
+                    feedback = feedback.replace(/```(?:json)?\s*[\s\S]*?```/g, '').trim();
+                    evaluationData.natural_language_feedback = feedback;
                   }
 
-                  console.log('从reply提取到督导数据:', evaluationData);
+                  console.log('从reply markdown代码块提取到督导数据:', evaluationData);
                 }
               } catch (e) {
-                console.log('解析reply中的structured_output失败:', e);
+                console.log('解析markdown代码块中的JSON失败:', e);
+              }
+            }
+
+            // 如果 markdown 代码块方式没解析出来，尝试其他方式
+            if (!evaluationData) {
+              // 尝试提取 "结构化输出" 后的 JSON
+              const structuredOutputMatch = replyText.match(/(?:###\s*|2\.\s*|)(?:结构化输出)[：:\s]*\n*((?:\n?\{[\s\S]*?\})|(?:```json\s*([\s\S]*?)```))/);
+              if (structuredOutputMatch) {
+                try {
+                  const jsonContent = structuredOutputMatch[1] || structuredOutputMatch[2];
+                  const parsed = JSON.parse(jsonContent);
+                  if (parsed.综合得分 !== undefined) {
+                    evaluationData = {
+                      综合得分: parsed.综合得分,
+                      总体评价: parsed.总体评价 || '',
+                      建议: parsed.建议 || '',
+                      跳步判断: parsed.跳步判断 || {
+                        是否跳步: false,
+                        跳步类型: "无",
+                        督导建议: "无跳步问题"
+                      }
+                    };
+
+                    // 提取自然语言反馈部分
+                    const feedbackMatch = replyText.match(/(?:###\s*|1\.\s*|)(?:自然语言反馈)[：:\s]*\n*(.*?)(?=\n\n###|\n\n\d+\.|\n\n结构化输出|$)/s);
+                    if (feedbackMatch) {
+                      let feedback = feedbackMatch[1].trim();
+                      feedback = feedback.replace(/```(?:json)?\s*[\s\S]*?```/g, '').trim();
+                      evaluationData.natural_language_feedback = feedback;
+                    }
+
+                    console.log('从reply提取到督导数据:', evaluationData);
+                  }
+                } catch (e) {
+                  console.log('解析reply中的structured_output失败:', e);
+                }
               }
             }
 
