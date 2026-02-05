@@ -19,7 +19,7 @@ interface Message {
 interface ChatInterfaceProps {
   scenario: Scenario;
   onBack: () => void;
-  onFinish: (evaluation?: OverallEvaluation, scores?: CompetencyScores, turns?: number, sessionRecords?: SessionTurnRecord[], allChartData?: ChartData | null) => void;
+  onFinish: (evaluation?: OverallEvaluation, scores?: CompetencyScores, turns?: number, sessionRecords?: SessionTurnRecord[], allChartData?: ChartData | null, messages?: Message[]) => void;
 }
 
 // 每轮对话记录（用于评价报告）
@@ -264,18 +264,19 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
       const overallEvaluation = await difyApiService.callOverallEvaluationAPI(competencyScores);
       const currentTurn = Math.floor((messages.length - 1) / 2) + 1;
 
-      // 传递数据给父组件（包含每轮记录和完整图表数据）
+      // 传递数据给父组件（包含每轮记录、完整图表数据和对话历史）
       onFinish(
         overallEvaluation || undefined,
         competencyScores,
         currentTurn,
         sessionTurnRecords,
-        chartData
+        chartData,
+        messages
       );
     } catch (error) {
       console.error('获取综合评价失败:', error);
       // 即使失败也允许进入评价页面
-      onFinish(undefined, competencyScores, Math.floor((messages.length - 1) / 2) + 1, sessionTurnRecords, chartData);
+      onFinish(undefined, competencyScores, Math.floor((messages.length - 1) / 2) + 1, sessionTurnRecords, chartData, messages);
     } finally {
       setIsFinishing(false);
     }

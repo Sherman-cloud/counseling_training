@@ -53,13 +53,16 @@ export default function App() {
     scores?: CompetencyScores,
     turns?: number,
     records?: SessionTurnRecord[],
-    chartData?: ChartData | null
+    chartData?: ChartData | null,
+    messages?: any[]
   ) => {
     if (evaluation) setOverallEvaluation(evaluation);
     if (scores) setCompetencyScores(scores);
     if (turns) setConversationTurns(turns);
     if (records) setSessionTurnRecords(records);
     if (chartData) setAllChartData(chartData);
+    // 存储消息历史（可选，用于导出）
+    if (messages) (window as any).sessionMessages = messages;
     setAppState('report');
   };
 

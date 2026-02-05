@@ -1,6 +1,6 @@
 import { Download, ArrowLeft, Star, AlertCircle, Award, CheckCircle2, TrendingUp, TrendingDown, Sparkles, Wrench } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, AreaChart, Area } from 'recharts';
 import type { OverallEvaluation, ChartData } from '@/app/services/api';
 
 interface EvaluationReportProps {
@@ -39,7 +39,12 @@ const colors = {
   light: '#E8F4F6',
   bg: '#F8FAFC',
   success: '#10B981',
-  warning: '#F59E0B'
+  warning: '#F59E0B',
+  // 关键帧诊断配色
+  bestBorder: '#51999F',
+  bestBg: '#BFDFD2',
+  worstBorder: '#ED8D5A',
+  worstBg: '#EA9E58'
 };
 
 const competencyDimensions = [
@@ -158,11 +163,11 @@ function KeyMomentsAnalysis({ sessionTurnRecords }: { sessionTurnRecords: Sessio
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* 高光时刻 */}
-        <div className="rounded-lg p-4 border-2" style={{ backgroundColor: '#F0FDF4', borderColor: colors.success }}>
+        <div className="rounded-lg p-4 border-2" style={{ backgroundColor: colors.bestBg, borderColor: colors.bestBorder }}>
           <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-4 h-4" style={{ color: colors.success }} />
-            <h3 className="text-sm font-semibold" style={{ color: colors.success }}>高光时刻</h3>
-            <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: colors.success, color: 'white' }}>
+            <Sparkles className="w-4 h-4" style={{ color: colors.bestBorder }} />
+            <h3 className="text-sm font-semibold" style={{ color: colors.bestBorder }}>高光时刻</h3>
+            <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: colors.bestBorder }}>
               {bestMoment.score.toFixed(1)}分
             </span>
           </div>
@@ -185,11 +190,11 @@ function KeyMomentsAnalysis({ sessionTurnRecords }: { sessionTurnRecords: Sessio
         </div>
 
         {/* 提升空间 */}
-        <div className="rounded-lg p-4 border-2" style={{ backgroundColor: '#FEF3C7', borderColor: colors.warning }}>
+        <div className="rounded-lg p-4 border-2" style={{ backgroundColor: colors.worstBg, borderColor: colors.worstBorder }}>
           <div className="flex items-center gap-2 mb-3">
-            <Wrench className="w-4 h-4" style={{ color: colors.warning }} />
-            <h3 className="text-sm font-semibold" style={{ color: colors.warning }}>提升空间</h3>
-            <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: colors.warning, color: 'white' }}>
+            <Wrench className="w-4 h-4" style={{ color: colors.worstBorder }} />
+            <h3 className="text-sm font-semibold" style={{ color: colors.worstBorder }}>提升空间</h3>
+            <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: colors.worstBorder }}>
               {worstMoment.score.toFixed(1)}分
             </span>
           </div>
@@ -227,10 +232,19 @@ function VisitorStatusCharts({ allChartData }: { allChartData: ChartData | null 
     4: '结束阶段'
   };
 
-  // 对话阶段曲线数据
+  // 阶段数字映射（用于绘制曲线）
+  const stageNumbers: Record<number, number> = {
+    1: 1,
+    2: 2,
+    3: 3,
+    4: 4
+  };
+
+  // 对话阶段曲线数据 - 使用数字而不是文字，这样才能画出曲线
   const stageData = allChartData.conversation_stage_curve?.map(d => ({
     轮次: d.dialogue_count,
-    阶段: stageNames[d.stage] || `阶段${d.stage}`
+    阶段值: stageNumbers[d.stage] || d.stage,
+    阶段名: stageNames[d.stage] || `阶段${d.stage}`
   })) || [];
 
   // 情绪时间线数据
@@ -239,16 +253,16 @@ function VisitorStatusCharts({ allChartData }: { allChartData: ChartData | null 
     情绪: d.label
   })) || [];
 
-  // 压力曲线数据
+  // 压力曲线数据 - domain 0-1
   const stressData = allChartData.stress_curve?.map(d => ({
     轮次: d.turn,
-    压力: d.value
+    压力: d.value / 10 // 归一化到0-1范围
   })) || [];
 
-  // 情绪曲线数据
+  // 情绪曲线数据 - domain -1到1
   const emotionCurveData = allChartData.emotion_curve?.map(d => ({
     轮次: d.turn,
-    情绪值: d.value
+    情绪值: (d.value - 5) / 5 // 将0-10映射到-1到1
   })) || [];
 
   return (
@@ -261,15 +275,31 @@ function VisitorStatusCharts({ allChartData }: { allChartData: ChartData | null 
           <div>
             <p className="text-xs text-slate-500 mb-2">对话阶段</p>
             <ResponsiveContainer width="100%" height={150}>
-              <LineChart data={stageData}>
+              <AreaChart data={stageData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="轮次" tick={{ fontSize: 10 }} stroke="#94a3b8" />
-                <YAxis tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <YAxis
+                  domain={[0.5, 4.5]}
+                  ticks={[1, 2, 3, 4]}
+                  tickFormatter={(v) => stageNames[v] || v}
+                  tick={{ fontSize: 9 }}
+                  stroke="#94a3b8"
+                />
                 <Tooltip
                   contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '11px' }}
+                  labelFormatter={(label) => `第${label}轮`}
+                  formatter={(value: any, name: any, props: any) => {
+                    return [stageNames[props.payload?.阶段值] || value, '阶段'];
+                  }}
                 />
-                <Line type="stepAfter" dataKey="阶段" stroke={colors.primary} strokeWidth={2} dot={false} />
-              </LineChart>
+                <Area
+                  type="stepAfter"
+                  dataKey="阶段值"
+                  stroke={colors.primary}
+                  fill={colors.primary}
+                  fillOpacity={0.3}
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         )}
@@ -277,14 +307,16 @@ function VisitorStatusCharts({ allChartData }: { allChartData: ChartData | null 
         {/* 压力曲线 */}
         {stressData.length > 0 && (
           <div>
-            <p className="text-xs text-slate-500 mb-2">压力水平</p>
+            <p className="text-xs text-slate-500 mb-2">压力强度</p>
             <ResponsiveContainer width="100%" height={150}>
               <LineChart data={stressData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="轮次" tick={{ fontSize: 10 }} stroke="#94a3b8" />
-                <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <YAxis domain={[0, 1]} tick={{ fontSize: 10 }} stroke="#94a3b8" />
                 <Tooltip
                   contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '11px' }}
+                  labelFormatter={(label) => `第${label}轮`}
+                  formatter={(value: any) => [(value * 100).toFixed(0) + '%', '压力']}
                 />
                 <Line type="monotone" dataKey="压力" stroke={colors.dark} strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
@@ -319,11 +351,19 @@ function VisitorStatusCharts({ allChartData }: { allChartData: ChartData | null 
               <LineChart data={emotionCurveData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="轮次" tick={{ fontSize: 10 }} stroke="#94a3b8" />
-                <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <YAxis domain={[-1, 1]} tick={{ fontSize: 10 }} stroke="#94a3b8" />
                 <Tooltip
                   contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '11px' }}
+                  labelFormatter={(label) => `第${label}轮`}
+                  formatter={(value: any) => [value.toFixed(2), '情绪值']}
                 />
-                <Line type="monotone" dataKey="情绪值" stroke="#51999F" strokeWidth={2} dot={{ r: 3 }} />
+                <Line
+                  type="monotone"
+                  dataKey="情绪值"
+                  stroke="#51999F"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -366,13 +406,61 @@ export function EvaluationReport({
   };
 
   const handleExport = () => {
+    // 获取存储的对话历史
+    const sessionMessages = (window as any).sessionMessages || [];
+
+    // 构建完整对话记录
+    const conversationHistory = sessionMessages.map((msg: any) => ({
+      role: msg.role === 'user' ? '咨询师' : '来访者',
+      content: msg.content,
+      timestamp: msg.timestamp
+    }));
+
+    // 构建每轮的完整记录（来访-咨询师-督导）
+    const fullTurnRecords = sessionTurnRecords.map((record, index) => {
+      const visitorMsg = record.visitorMessage;
+      const counselorMsg = record.counselorMessage;
+      const supervisorFeedback = record.feedback;
+      const score = record.score;
+
+      return {
+        轮次: record.turn,
+        来访者发言: visitorMsg,
+        咨询师回复: counselorMsg,
+        督导评分: score,
+        督导反馈: supervisorFeedback
+      };
+    });
+
     const exportData = {
-      scenario: scenarioName,
-      overallScore: overallScore,
-      conversationTurns: conversationTurns,
-      competencyScores: competencyScores,
-      sessionTurnRecords: sessionTurnRecords,
-      timestamp: new Date().toISOString()
+      报告信息: {
+        场景: scenarioName,
+        综合得分: overallScore,
+        对话轮次: conversationTurns,
+        段位: getRank(overallScore),
+        导出时间: new Date().toLocaleString('zh-CN')
+      },
+
+      // 完整对话记录（三方）
+      对话记录: fullTurnRecords,
+
+      // 综合评价
+      综合评价: {
+        总体评价: overallEvaluation?.natural_language_feedback || '',
+        稳定优势: strengths,
+        待提升: weaknesses
+      },
+
+      // 胜任力维度平均分
+      胜任力维度: competencyScores,
+
+      // 来访者状态监控数据
+      来访者状态: {
+        对话阶段曲线: allChartData?.conversation_stage_curve,
+        情绪时间线: allChartData?.session_emotion_timeline,
+        压力曲线: allChartData?.stress_curve,
+        情绪曲线: allChartData?.emotion_curve
+      }
     };
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
