@@ -1,4 +1,4 @@
-import { Download, ArrowLeft, Star, AlertCircle, Award, CheckCircle2, TrendingUp, TrendingDown, Sparkles, Wrench } from 'lucide-react';
+import { Download, ArrowLeft, Star, AlertCircle, Award, CheckCircle2, TrendingUp, TrendingDown, Sparkles, Wrench, Activity, Brain, Gauge } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, AreaChart, Area } from 'recharts';
 import type { OverallEvaluation, ChartData } from '@/app/services/api';
@@ -220,152 +220,221 @@ function KeyMomentsAnalysis({ sessionTurnRecords }: { sessionTurnRecords: Sessio
   );
 }
 
-// 来访者状态图表组件
+// 来访者状态图表组件 - 与主对话界面保持一致
 function VisitorStatusCharts({ allChartData }: { allChartData: ChartData | null }) {
   if (!allChartData) return null;
 
-  // 阶段名称映射
+  // 阶段名称映射（与主对话界面完全一致）
   const stageNames: Record<number, string> = {
-    1: '初始阶段',
-    2: '深入阶段',
-    3: '工作阶段',
-    4: '结束阶段'
+    1: '建立关系',
+    2: '情绪/问题叙述',
+    3: '探索情绪与想法',
+    4: '洞察',
+    5: '深度处理',
+    6: '行动',
+    7: '抵抗 / 防御',
+    8: '冲突回避',
+    9: '反刍',
+    10: '突破前兆'
   };
 
-  // 阶段数字映射（用于绘制曲线）
-  const stageNumbers: Record<number, number> = {
-    1: 1,
-    2: 2,
-    3: 3,
-    4: 4
+  // 对话阶段数据
+  const emotionTimelineData = allChartData.conversation_stage_curve?.map(item => ({
+    turn: `第${item.dialogue_count}轮`,
+    stage: item.stage
+  })) || [];
+
+  // 压力数据 - 直接使用原始值
+  const stressData = allChartData.stress_curve?.map(item => ({
+    turn: `第${item.turn}轮`,
+    value: item.value
+  })) || [];
+
+  // 情绪强度数据 - 直接使用原始值
+  const emotionIntensityData = allChartData.emotion_curve?.map(item => ({
+    turn: `第${item.turn}轮`,
+    value: item.value
+  })) || [];
+
+  // 情绪时间线列表
+  const emotionTimeline = allChartData.session_emotion_timeline || [];
+
+  // 情绪颜色映射
+  const stageColors = {
+    '愤怒': '#ED8D5A',
+    '怀疑': '#EA9E58',
+    '压抑': '#ECB66C',
+    '开放': '#7BC0CD',
+    '平和': '#BFDFD2',
+    '欣喜': '#7BC0CD',
+    '低迷': '#51999F',
+    '失眠': '#51999F',
+    '焦虑': '#ECB66C',
+    '悲伤': '#4198AC',
+    '平静': '#BFDFD2'
   };
 
-  // 对话阶段曲线数据 - 使用数字而不是文字，这样才能画出曲线
-  const stageData = allChartData.conversation_stage_curve?.map(d => ({
-    轮次: d.dialogue_count,
-    阶段值: stageNumbers[d.stage] || d.stage,
-    阶段名: stageNames[d.stage] || `阶段${d.stage}`
-  })) || [];
+  const generateColorForLabel = (label: string): string => {
+    if (stageColors[label as keyof typeof stageColors]) {
+      return stageColors[label as keyof typeof stageColors];
+    }
+    return '#7BC0CD';
+  };
 
-  // 情绪时间线数据
-  const emotionData = allChartData.session_emotion_timeline?.map(d => ({
-    轮次: d.turn,
-    情绪: d.label
-  })) || [];
+  const currentEmotionLabel = emotionTimeline.length > 0
+    ? emotionTimeline[emotionTimeline.length - 1].label
+    : '未知';
 
-  // 压力曲线数据 - domain 0-1
-  const stressData = allChartData.stress_curve?.map(d => ({
-    轮次: d.turn,
-    压力: d.value / 10 // 归一化到0-1范围
-  })) || [];
-
-  // 情绪曲线数据 - domain -1到1
-  const emotionCurveData = allChartData.emotion_curve?.map(d => ({
-    轮次: d.turn,
-    情绪值: (d.value - 5) / 5 // 将0-10映射到-1到1
-  })) || [];
+  const allEmotionLabels = Array.from(new Set(emotionTimeline.map(item => item.label)));
+  const currentStages = allEmotionLabels.map(stage => ({
+    name: stage,
+    active: stage === currentEmotionLabel,
+    color: generateColorForLabel(stage)
+  }));
 
   return (
     <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
       <h2 className="text-sm font-semibold text-slate-900 mb-4">来访者状态监控</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* 对话阶段曲线 */}
-        {stageData.length > 0 && (
+        {/* 对话阶段 */}
+        {emotionTimelineData.length > 0 && (
           <div>
             <p className="text-xs text-slate-500 mb-2">对话阶段</p>
             <ResponsiveContainer width="100%" height={150}>
-              <AreaChart data={stageData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="轮次" tick={{ fontSize: 10 }} stroke="#94a3b8" />
+              <AreaChart data={emotionTimelineData}>
+                <defs>
+                  <linearGradient id="colorEmotion" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4198AC" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#4198AC" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="turn" tick={{ fontSize: 10 }} stroke="#94a3b8" />
                 <YAxis
-                  domain={[0.5, 4.5]}
-                  ticks={[1, 2, 3, 4]}
-                  tickFormatter={(v) => stageNames[v] || v}
-                  tick={{ fontSize: 9 }}
-                  stroke="#94a3b8"
+                  domain={[1, 10]}
+                  ticks={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
+                  tick={{ fontSize: 10 }} stroke="#94a3b8"
                 />
                 <Tooltip
-                  contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '11px' }}
-                  labelFormatter={(label) => `第${label}轮`}
-                  formatter={(value: any, name: any, props: any) => {
-                    return [stageNames[props.payload?.阶段值] || value, '阶段'];
+                  formatter={(value: number) => {
+                    const stageName = stageNames[value] || `阶段 ${value}`;
+                    return [stageName, ''];
                   }}
                 />
                 <Area
-                  type="stepAfter"
-                  dataKey="阶段值"
-                  stroke={colors.primary}
-                  fill={colors.primary}
-                  fillOpacity={0.3}
+                  type="monotone"
+                  dataKey="stage"
+                  stroke="#4198AC"
+                  strokeWidth={2}
+                  fill="url(#colorEmotion)"
                 />
               </AreaChart>
             </ResponsiveContainer>
+            <p className="text-xs text-slate-500 mt-1">阶段 (1-10)</p>
           </div>
         )}
 
-        {/* 压力曲线 */}
+        {/* 压力水平 */}
         {stressData.length > 0 && (
           <div>
-            <p className="text-xs text-slate-500 mb-2">压力强度</p>
+            <p className="text-xs text-slate-500 mb-2">压力水平</p>
             <ResponsiveContainer width="100%" height={150}>
-              <LineChart data={stressData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="轮次" tick={{ fontSize: 10 }} stroke="#94a3b8" />
-                <YAxis domain={[0, 1]} tick={{ fontSize: 10 }} stroke="#94a3b8" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '11px' }}
-                  labelFormatter={(label) => `第${label}轮`}
-                  formatter={(value: any) => [(value * 100).toFixed(0) + '%', '压力']}
+              <AreaChart data={stressData}>
+                <defs>
+                  <linearGradient id="colorStress" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#EA9E58" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#EA9E58" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="turn" tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <YAxis
+                  domain={[0, 1]}
+                  tick={{ fontSize: 10 }} stroke="#94a3b8"
                 />
-                <Line type="monotone" dataKey="压力" stroke={colors.dark} strokeWidth={2} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* 情绪时间线 */}
-        {emotionData.length > 0 && (
-          <div>
-            <p className="text-xs text-slate-500 mb-2">情绪状态</p>
-            <div className="h-[150px] overflow-y-auto">
-              <div className="space-y-1">
-                {emotionData.map((d, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    <span className="w-12 text-slate-400">第{d.轮次}轮</span>
-                    <span className="px-2 py-0.5 rounded text-white text-xs" style={{ backgroundColor: colors.primary }}>
-                      {d.情绪}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 情绪曲线 */}
-        {emotionCurveData.length > 0 && (
-          <div>
-            <p className="text-xs text-slate-500 mb-2">情绪变化</p>
-            <ResponsiveContainer width="100%" height={150}>
-              <LineChart data={emotionCurveData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="轮次" tick={{ fontSize: 10 }} stroke="#94a3b8" />
-                <YAxis domain={[-1, 1]} tick={{ fontSize: 10 }} stroke="#94a3b8" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '11px' }}
-                  labelFormatter={(label) => `第${label}轮`}
-                  formatter={(value: any) => [value.toFixed(2), '情绪值']}
-                />
-                <Line
+                <Tooltip />
+                <Area
                   type="monotone"
-                  dataKey="情绪值"
-                  stroke="#51999F"
+                  dataKey="value"
+                  stroke="#EA9E58"
                   strokeWidth={2}
-                  dot={{ r: 3 }}
+                  fill="url(#colorStress)"
                 />
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
+            <p className="text-xs text-slate-500 mt-1">压力值 (0-1)</p>
+          </div>
+        )}
+
+        {/* 情绪强度 */}
+        {emotionIntensityData.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-500 mb-2">情绪强度</p>
+            <ResponsiveContainer width="100%" height={150}>
+              <AreaChart data={emotionIntensityData}>
+                <defs>
+                  <linearGradient id="colorIntensity" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ECB66C" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#ECB66C" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="turn" tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <YAxis
+                  domain={[-1, 1]}
+                  tick={{ fontSize: 10 }} stroke="#94a3b8"
+                />
+                <Tooltip />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#ECB66C"
+                  strokeWidth={2}
+                  fill="url(#colorIntensity)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+            <p className="text-xs text-slate-500 mt-1">情绪强度 (-1～1)</p>
+          </div>
+        )}
+
+        {/* 情绪时间线列表 */}
+        {emotionTimeline.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-500 mb-2">情绪流变</p>
+            {/* Legend */}
+            <div className="flex flex-wrap gap-x-2 gap-y-1 mb-2">
+              {currentStages.map((stage) => (
+                <div key={stage.name} className="flex items-center gap-1">
+                  <div
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: stage.color }}
+                  />
+                  <span className="text-xs text-slate-600">{stage.name}</span>
+                </div>
+              ))}
+            </div>
+            {/* Timeline Bar */}
+            <div className="relative h-4 rounded-full overflow-hidden flex">
+              {currentStages.map((stage, index) => {
+                const color = stage.color;
+                const nextColor = index < currentStages.length - 1
+                  ? currentStages[index + 1].color
+                  : color;
+                return (
+                  <div
+                    key={stage.name}
+                    className="flex-1 relative"
+                    style={{
+                      background: index < currentStages.length - 1
+                        ? `linear-gradient(to right, ${color} 0%, ${color} 70%, ${nextColor} 100%)`
+                        : color
+                    }}
+                  />
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
