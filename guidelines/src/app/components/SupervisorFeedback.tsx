@@ -11,12 +11,12 @@ interface SupervisorFeedbackProps {
 }
 
 export function SupervisorFeedback({ evaluations }: SupervisorFeedbackProps) {
-  // 为每个评价跟踪详情展开/折叠状态 - 默认展开最新的一轮
+  // 为每个评价跟踪自然语言反馈展开/折叠状态 - 当前轮默认展开
   const [expandedFeedbacks, setExpandedFeedbacks] = useState<Set<number>>(
     new Set(evaluations.length > 0 ? [evaluations[0].turn] : [])
   );
 
-  // 切换某轮的详情展开状态
+  // 切换某轮的自然语言反馈展开状态
   const toggleFeedback = (turn: number) => {
     setExpandedFeedbacks(prev => {
       const newSet = new Set(prev);
@@ -38,7 +38,7 @@ export function SupervisorFeedback({ evaluations }: SupervisorFeedbackProps) {
     setExpandedFeedbacks(new Set(evaluations.length > 0 ? [evaluations[0].turn] : []));
   };
 
-  // 当 evaluations 更新时，确保最新一轮的详情始终展开
+  // 当 evaluations 更新时，确保最新一轮的自然语言反馈始终展开
   useEffect(() => {
     if (evaluations.length > 0) {
       setExpandedFeedbacks(prev => {
@@ -132,88 +132,90 @@ export function SupervisorFeedback({ evaluations }: SupervisorFeedbackProps) {
                       </span>
                     </div>
 
-                    {/* 自然语言反馈 - 始终显示，不需要点击展开 */}
+                    {/* 展开/折叠自然语言反馈按钮 */}
                     {evaluation.natural_language_feedback && (
-                      <div className="text-sm text-slate-700 leading-relaxed">
-                        {evaluation.natural_language_feedback}
+                      <button
+                        onClick={() => toggleFeedback(evaluation.turn)}
+                        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                      >
+                        {isExpanded ? (
+                          <>
+                            <ChevronDown className="w-3 h-3" />
+                            收起详细反馈
+                          </>
+                        ) : (
+                          <>
+                            <ChevronRight className="w-3 h-3" />
+                            查看详细反馈
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 内容区域 - 始终可见 */}
+                  <div className={`p-4 bg-gradient-to-br ${getScoreBgClass(evaluation.综合得分)} border-t`}>
+                    {/* Natural Language Feedback - 可折叠 */}
+                    {isExpanded && evaluation.natural_language_feedback && (
+                      <div className="mb-4 pb-4 border-b border-black/10">
+                        <p className="text-sm text-slate-700 leading-relaxed">
+                          {evaluation.natural_language_feedback}
+                        </p>
                       </div>
                     )}
 
-                    {/* 展开/折叠详情按钮 */}
-                    <button
-                      onClick={() => toggleFeedback(evaluation.turn)}
-                      className="mt-2 flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors"
-                    >
-                      {isExpanded ? (
-                        <>
-                          <ChevronDown className="w-3 h-3" />
-                          收起详情
-                        </>
-                      ) : (
-                        <>
-                          <ChevronRight className="w-3 h-3" />
-                          查看详情
-                        </>
-                      )}
-                    </button>
-                  </div>
+                    {/* Summary - 始终可见 */}
+                    {evaluation.总体评价 && (
+                      <div className="mb-4">
+                        <p className="text-xs text-slate-500 mb-1">总体评价</p>
+                        <p className="text-sm text-slate-700 leading-relaxed">
+                          {evaluation.总体评价}
+                        </p>
+                      </div>
+                    )}
 
-                  {/* 详情内容（可折叠） */}
-                  {isExpanded && (
-                    <div className={`p-4 bg-gradient-to-br ${getScoreBgClass(evaluation.综合得分)} border-t`}>
-                      {/* Summary */}
-                      {evaluation.总体评价 && (
-                        <div className="mb-4">
-                          <p className="text-xs text-slate-500 mb-1">总体评价</p>
-                          <p className="text-sm text-slate-700 leading-relaxed">
-                            {evaluation.总体评价}
-                          </p>
+                    {/* Suggestion - 始终可见 */}
+                    {evaluation.建议 && (
+                      <div className="bg-white/80 rounded-lg p-3 mb-3 border border-white/50">
+                        <div className="flex items-start gap-2 mb-1">
+                          <Lightbulb className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                          <span className="text-xs font-semibold text-slate-700">建议:</span>
                         </div>
-                      )}
+                        <p className="text-sm text-slate-700 leading-relaxed ml-6">
+                          {evaluation.建议}
+                        </p>
+                      </div>
+                    )}
 
-                      {/* Suggestion */}
-                      {evaluation.建议 && (
-                        <div className="bg-white/80 rounded-lg p-3 mb-3 border border-white/50">
-                          <div className="flex items-start gap-2 mb-1">
-                            <Lightbulb className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                            <span className="text-xs font-semibold text-slate-700">建议:</span>
-                          </div>
-                          <p className="text-sm text-slate-700 leading-relaxed ml-6">
-                            {evaluation.建议}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Warning - 跳步 */}
-                      {evaluation.跳步判断?.是否跳步 && (
-                        <div className="bg-amber-100/80 rounded-lg p-3 border border-amber-200">
-                          <div className="flex items-start gap-2">
-                            <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <span className="text-xs font-semibold text-amber-800 block mb-1">
-                                跳步提示: {evaluation.跳步判断.跳步类型}
-                              </span>
-                              <p className="text-xs text-amber-700 leading-relaxed">
-                                {evaluation.跳步判断.督导建议}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Success - 无跳步 */}
-                      {!evaluation.跳步判断?.是否跳步 && (
-                        <div className="bg-emerald-100/80 rounded-lg p-3 border border-emerald-200">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-emerald-600" />
-                            <span className="text-xs font-medium text-emerald-800">
-                              节奏合适，未发现跳步问题
+                    {/* Warning - 跳步 - 始终可见 */}
+                    {evaluation.跳步判断?.是否跳步 && (
+                      <div className="bg-amber-100/80 rounded-lg p-3 border border-amber-200">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="text-xs font-semibold text-amber-800 block mb-1">
+                              跳步提示: {evaluation.跳步判断.跳步类型}
                             </span>
+                            <p className="text-xs text-amber-700 leading-relaxed">
+                              {evaluation.跳步判断.督导建议}
+                            </p>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    )}
+
+                    {/* Success - 无跳步 - 始终可见 */}
+                    {!evaluation.跳步判断?.是否跳步 && (
+                      <div className="bg-emerald-100/80 rounded-lg p-3 border border-emerald-200">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-emerald-600" />
+                          <span className="text-xs font-medium text-emerald-800">
+                            节奏合适，未发现跳步问题
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })
