@@ -368,12 +368,12 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
               {/* Loading Indicator */}
               {isLoading && messages.length > 0 && (
                 <div className="flex gap-4">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-slate-200 to-slate-300">
-                    <Bot className="w-5 h-5 text-slate-600" />
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #BFDFD2 0%, #7BC0CD 100%)' }}>
+                    <User className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex-1 items-start flex flex-col">
-                    <div className="px-4 py-3 rounded-2xl bg-slate-100">
-                      <span className="text-sm text-slate-500">来访者正在输入</span>
+                    <div className="px-4 py-3 rounded-2xl bg-slate-100 inline-block">
+                      <span className="text-sm text-slate-500">用户输入中</span>
                       <span className="typing-indicator">
                         <span className="typing-dot"></span>
                         <span className="typing-dot"></span>
@@ -389,8 +389,21 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-slate-200 bg-white">
-            <div className="px-8 py-6">
+          <div className="border-t border-slate-200 bg-white flex-shrink-0">
+            <div className="px-8 py-4">
+              {/* End Practice Button */}
+              <div className="max-w-3xl mx-auto flex justify-center mb-4">
+                <Button
+                  onClick={handleFinish}
+                  disabled={isLoading}
+                  variant="outline"
+                  className="px-8 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                >
+                  结束练习
+                </Button>
+              </div>
+
+              {/* Text Input */}
               <div className="max-w-3xl mx-auto">
                 <div className="flex gap-3 items-end">
                   <div className="flex-1 relative">
@@ -404,7 +417,7 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
                   </div>
                   <Button
                     onClick={handleSend}
-                    disabled={!input.trim()}
+                    disabled={!input.trim() || isLoading}
                     className="h-[60px] px-6 text-white disabled:bg-slate-300 hover:opacity-90"
                     style={{ backgroundColor: '#7BC0CD' }}
                   >
@@ -415,20 +428,6 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
                 <p className="text-xs text-slate-400 mt-2">
                   按 Enter 发送消息，Shift+Enter 换行
                 </p>
-              </div>
-
-              {/* End Practice Button */}
-              <div className="px-8 pb-4 mt-auto">
-                <div className="max-w-3xl mx-auto flex justify-center">
-                  <Button
-                    onClick={handleFinish}
-                    disabled={isLoading}
-                    variant="outline"
-                    className="w-1/4 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
-                  >
-                    结束练习
-                  </Button>
-                </div>
               </div>
             </div>
           </div>
