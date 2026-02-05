@@ -53,6 +53,20 @@ export function EvaluationReport({
 }: EvaluationReportProps) {
   const radarData = prepareRadarData(competencyScores as CompetencyScores);
 
+  // 处理稳定优势 - 支持字符串或数组格式
+  const strengths = overallEvaluation?.structured_output?.稳定优势
+    ? typeof overallEvaluation.structured_output.稳定优势 === 'string'
+      ? overallEvaluation.structured_output.稳定优势.split(/\d+\.\s+/).filter(s => s.trim())
+      : overallEvaluation.structured_output.稳定优势
+    : [];
+
+  // 处理结构性短板 - 支持字符串或数组格式
+  const weaknesses = overallEvaluation?.structured_output?.结构性短板
+    ? typeof overallEvaluation.structured_output.结构性短板 === 'string'
+      ? overallEvaluation.structured_output.结构性短板.split(/\d+\.\s+/).filter(s => s.trim())
+      : overallEvaluation.structured_output.结构性短板
+    : [];
+
   // 获取综合得分
   const overallScore = overallEvaluation?.structured_output?.综合得分 || 0;
 
@@ -202,14 +216,15 @@ export function EvaluationReport({
               <h3 className="text-xl font-bold text-green-900">稳定优势</h3>
             </div>
             <ul className="space-y-3">
-              {overallEvaluation?.structured_output?.稳定优势?.slice(0, 3).map((strength, index) => (
+              {strengths.slice(0, 3).map((strength, index) => (
                 <li key={index} className="flex items-start gap-3">
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-200 text-green-700 flex items-center justify-center text-sm font-semibold mt-0.5">
                     {index + 1}
                   </span>
                   <p className="text-green-800 leading-relaxed">{strength}</p>
                 </li>
-              )) || (
+              ))}
+              {strengths.length === 0 && (
                 <li className="text-green-700 italic">暂无数据</li>
               )}
             </ul>
@@ -222,14 +237,15 @@ export function EvaluationReport({
               <h3 className="text-xl font-bold text-amber-900">结构性短板</h3>
             </div>
             <ul className="space-y-3">
-              {overallEvaluation?.structured_output?.结构性短板?.slice(0, 3).map((weakness, index) => (
+              {weaknesses.slice(0, 3).map((weakness, index) => (
                 <li key={index} className="flex items-start gap-3">
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-200 text-amber-700 flex items-center justify-center text-sm font-semibold mt-0.5">
                     {index + 1}
                   </span>
                   <p className="text-amber-800 leading-relaxed">{weakness}</p>
                 </li>
-              )) || (
+              ))}
+              {weaknesses.length === 0 && (
                 <li className="text-amber-700 italic">暂无数据</li>
               )}
             </ul>

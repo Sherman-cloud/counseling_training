@@ -97,6 +97,7 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
   const [chartData, setChartData] = useState<ChartData | null>(null);
   const [supervisorEvaluations, setSupervisorEvaluations] = useState<Array<SupervisorEvaluation & { turn: number }>>([]);
   const [competencyScores, setCompetencyScores] = useState<CompetencyScores>({});
@@ -221,7 +222,7 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
   };
 
   const handleFinish = async () => {
-    setIsLoading(true);
+    setIsFinishing(true);
     try {
       // 调用综合评价API
       const overallEvaluation = await difyApiService.callOverallEvaluationAPI();
@@ -238,7 +239,7 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
       // 即使失败也允许进入评价页面
       onFinish(undefined, competencyScores, Math.floor((messages.length - 1) / 2) + 1);
     } finally {
-      setIsLoading(false);
+      setIsFinishing(false);
     }
   };
 
@@ -395,11 +396,11 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
               <div className="max-w-3xl mx-auto flex justify-center mb-4">
                 <Button
                   onClick={handleFinish}
-                  disabled={isLoading}
+                  disabled={isFinishing}
                   variant="outline"
                   className="px-8 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
                 >
-                  结束练习
+                  {isFinishing ? '正在生成评价...' : '结束练习'}
                 </Button>
               </div>
 
