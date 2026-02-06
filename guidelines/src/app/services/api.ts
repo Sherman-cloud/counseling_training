@@ -133,10 +133,17 @@ export class DifyApiService {
   private visitorConversationId: string | null = null;
   private supervisorConversationId: string | null = null;
   private fullSupervisorRecords: FullSupervisorRecord[] = [];  // 存储完整督导记录
+  private currentTurnNumber: number = 0;  // 跟踪当前轮次
 
   // 获取所有完整督导记录（用于最后的综合评价）
   getFullSupervisorRecords(): FullSupervisorRecord[] {
     return this.fullSupervisorRecords;
+  }
+
+  // 设置当前轮次（在调用督导API前调用）
+  setCurrentTurn(turn: number) {
+    this.currentTurnNumber = turn;
+    console.log('设置当前轮次:', turn);
   }
 
   private async callDifyAPI(
@@ -705,6 +712,28 @@ export class DifyApiService {
         console.log('最终督导评价:', evaluationData);
         console.log('胜任力维度:', competencyScores);
 
+        // Fallback: 如果没有从memory_update提取到fullRecord，使用evaluationData创建一个
+        if (!fullRecord && this.currentTurnNumber > 0) {
+          fullRecord = {
+            轮次: this.currentTurnNumber,
+            natural_language_feedback: evaluationData.natural_language_feedback || evaluationData.总体评价,
+            structured_output: {
+              综合得分: evaluationData.综合得分,
+              总体评价: evaluationData.总体评价,
+              建议: evaluationData.建议,
+              跳步判断: evaluationData.跳步判断
+            }
+          };
+          // 检查是否已存在该轮次的记录，避免重复
+          const existingIndex = this.fullSupervisorRecords.findIndex(r => r.轮次 === this.currentTurnNumber);
+          if (existingIndex === -1) {
+            this.fullSupervisorRecords.push(fullRecord);
+            console.log('通过fallback保存完整督导记录, 轮次:', this.currentTurnNumber);
+          } else {
+            console.log('轮次', this.currentTurnNumber, '记录已存在，跳过重复保存');
+          }
+        }
+
         return {
           fullRecord: fullRecord || undefined,
           evaluation: evaluationData,
@@ -802,6 +831,7 @@ ${competencySummary}
     this.visitorConversationId = null;
     this.supervisorConversationId = null;
     this.fullSupervisorRecords = [];  // 清空完整督导记录
+    this.currentTurnNumber = 0;  // 重置轮次计数
   }
 }
 

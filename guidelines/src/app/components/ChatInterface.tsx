@@ -180,6 +180,9 @@ export function ChatInterface({ scenario, onBack, onFinish }: ChatInterfaceProps
 
       const currentTurn = Math.floor((messages.length + 1) / 2);
 
+      // 设置当前轮次，用于督导记录保存
+      difyApiService.setCurrentTurn(currentTurn);
+
       // 同时调用督导API和来访者API（并行执行）
       const [supervisorResponse, visitorResponse] = await Promise.allSettled([
         difyApiService.callSupervisorAgent(currentInput, conversationHistory, chartData),
