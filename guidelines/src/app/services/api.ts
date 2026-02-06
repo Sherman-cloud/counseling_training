@@ -475,7 +475,6 @@ export class DifyApiService {
         }
 
         console.log('最终opennessLevel:', opennessLevel);
-        }
 
         if (secondJson.conversation_stage_curve || secondJson.session_emotion_timeline || secondJson.stress_curve || secondJson.emotion_curve) {
           chartData = secondJson;
