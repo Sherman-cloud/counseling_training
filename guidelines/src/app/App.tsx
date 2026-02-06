@@ -3,6 +3,7 @@ import { LoginPage } from '@/app/components/LoginPage';
 import { ScenarioSelection } from '@/app/components/ScenarioSelection';
 import { ChatInterface } from '@/app/components/ChatInterface';
 import { EvaluationReport } from '@/app/components/EvaluationReport';
+import { difyApiService } from '@/app/services/api';
 import type { Scenario } from '@/app/components/ScenarioSelection';
 import type { OverallEvaluation } from '@/app/services/api';
 import type { CompetencyScores } from '@/app/services/api';
@@ -28,6 +29,7 @@ export default function App() {
   const [conversationTurns, setConversationTurns] = useState(0);
   const [sessionTurnRecords, setSessionTurnRecords] = useState<SessionTurnRecord[]>([]);
   const [allChartData, setAllChartData] = useState<ChartData | null>(null);
+  const [chatSessionKey, setChatSessionKey] = useState(0);  // 用于强制重置ChatInterface
 
   const handleLogin = () => {
     setAppState('scenario-selection');
@@ -67,7 +69,18 @@ export default function App() {
   };
 
   const handleStartNew = () => {
-    setSelectedScenario(null);
+    // 保留当前场景，重置数据，开始新对话
+    setOverallEvaluation(null);
+    setCompetencyScores({});
+    setConversationTurns(0);
+    setSessionTurnRecords([]);
+    setAllChartData(null);
+    // 清空消息历史
+    (window as any).sessionMessages = [];
+    // 重置API服务中的对话状态
+    difyApiService.resetConversations();
+    // 递增key以强制重新创建ChatInterface组件
+    setChatSessionKey(prev => prev + 1);
     setAppState('chat');
   };
 
@@ -86,6 +99,7 @@ export default function App() {
 
       {appState === 'chat' && selectedScenario && (
         <ChatInterface
+          key={chatSessionKey}
           scenario={selectedScenario}
           onBack={handleBackToScenarios}
           onFinish={handleFinishPractice}
