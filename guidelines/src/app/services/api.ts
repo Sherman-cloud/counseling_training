@@ -134,12 +134,7 @@ export class DifyApiService {
   private supervisorConversationId: string | null = null;
   private fullSupervisorRecords: FullSupervisorRecord[] = [];  // 存储完整督导记录
   private currentTurnNumber: number = 0;  // 跟踪当前轮次
-  private fullSupervisorHistory: string = '';  // 存储督导API输出的完整历史记录
-
-  // 获取所有完整督导记录（用于最后的综合评价）
-  getFullSupervisorRecords(): FullSupervisorRecord[] {
-    return this.fullSupervisorRecords;
-  }
+  private fullSupervisorHistory: string = '';  // 存储督导API的memory_update（完整督导历史）
 
   // 获取完整督导历史记录（用于综合评价API）
   getFullSupervisorHistory(): string {
@@ -522,18 +517,6 @@ export class DifyApiService {
       console.log('提取到', jsonObjects.length, '个JSON对象');
 
       for (const obj of jsonObjects) {
-        // 0. 提取完整督导历史记录（用于综合评价API）
-        // 查找可能包含完整历史记录的字段
-        const historyKeys = ['full_history', '全部历史记录', 'all_history', 'history', '督导历史'];
-        for (const key of historyKeys) {
-          if (obj[key] !== undefined) {
-            this.fullSupervisorHistory = obj[key];
-            console.log('提取到完整督导历史记录，长度:', this.fullSupervisorHistory.length);
-            console.log('完整历史记录前200字符:', this.fullSupervisorHistory.substring(0, 200));
-            break;
-          }
-        }
-
         // 1. 处理完整督导记录 (memory_update)
         if (obj.memory_update) {
           const extractedJson = this.extractJsonFromMarkdown(obj.memory_update);
@@ -552,6 +535,12 @@ export class DifyApiService {
             } catch (e) {
               console.log('解析memory_update失败:', e);
             }
+          }
+
+          // 保存memory_update的原始内容作为完整督导历史记录（用于综合评价API）
+          if (obj.memory_update) {
+            this.fullSupervisorHistory = obj.memory_update;
+            console.log('保存完整督导历史记录（从memory_update）, 长度:', this.fullSupervisorHistory.length);
           }
         }
 
