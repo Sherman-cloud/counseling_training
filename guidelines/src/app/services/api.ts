@@ -389,72 +389,114 @@ export class DifyApiService {
 
     // 清理JSON字符串中的控制字符（防止解析错误）
     const cleanJsonString = (jsonStr: string): string => {
-      // 只移除未转义的控制字符，保留已经正确转义的字符
-      // 匹配：不在反斜杠后的控制字符
-      return jsonStr
-        .replace(/(?<!\\)\n/g, '\\n')   // 只转义未转义的换行符
-        .replace(/(?<!\\)\r/g, '\\r')   // 只转义未转义的回车符
-        .replace(/(?<!\\)\t/g, '\\t')   // 只转义未转义的制表符
-        // 移除其他不可见控制字符（排除常见的空白字符）
-        .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F]/g, '');
+      // 更安全的方法：遍历字符串，只转义真正的控制字符
+      let result = '';
+      for (let i = 0; i < jsonStr.length; i++) {
+        const char = jsonStr[i];
+        const code = jsonStr.charCodeAt(i);
+
+        // 检查是否是转义序列的一部分
+        if (char === '\\' && i + 1 < jsonStr.length) {
+          const nextChar = jsonStr[i + 1];
+          // 保留已有的转义序列
+          if (nextChar === 'n' || nextChar === 'r' || nextChar === 't' || nextChar === '"' || nextChar === '\\') {
+            result += char;
+            result += nextChar;
+            i++; // 跳过下一个字符
+            continue;
+          }
+        }
+
+        // 处理控制字符
+        if (code === 10) { // \n
+          result += '\\n';
+        } else if (code === 13) { // \r
+          result += '\\r';
+        } else if (code === 9) { // \t
+          result += '\\t';
+        } else if (code < 32 || code === 127) {
+          // 移除其他控制字符
+          continue;
+        } else {
+          result += char;
+        }
+      }
+      return result;
     };
 
     if (jsonObjects.length >= 2) {
       try {
-        // 清理JSON字符串后再解析
-        const firstJson = JSON.parse(cleanJsonString(jsonObjects[0])) as NewApiResponse;
-        const secondJson = JSON.parse(cleanJsonString(jsonObjects[1])) as ChartData;
+        // 先尝试直接解析，如果失败再清理
+        let firstJson, secondJson;
+        try {
+          firstJson = JSON.parse(jsonObjects[0]) as NewApiResponse;
+        } catch {
+          firstJson = JSON.parse(cleanJsonString(jsonObjects[0])) as NewApiResponse;
+        }
+
+        try {
+          secondJson = JSON.parse(jsonObjects[1]) as ChartData;
+        } catch {
+          secondJson = JSON.parse(cleanJsonString(jsonObjects[1])) as ChartData;
+        }
 
         if (firstJson.reply) {
           if (typeof firstJson.reply === 'string' && firstJson.reply.includes('{')) {
             try {
               console.log('尝试解析reply字段:', firstJson.reply);
 
-              // 先清理控制字符，保持转义形式
-              let processedReply = cleanJsonString(firstJson.reply);
+              // 先尝试直接使用reply，如果包含嵌套JSON则提取
+              if (firstJson.reply && typeof firstJson.reply === 'string') {
+                // 尝试提取 markdown 代码块中的内容
+                const jsonBlockMatch = firstJson.reply.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+                if (jsonBlockMatch) {
+                  let contentToParse = jsonBlockMatch[1].trim();
+                  console.log('提取到代码块:', contentToParse);
 
-              console.log('处理后的reply:', processedReply);
-
-              // 尝试提取 markdown 代码块中的内容
-              const jsonBlockMatch = processedReply.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-              let contentToParse = jsonBlockMatch ? jsonBlockMatch[1].trim() : processedReply;
-
-              // 再次清理可能的控制字符
-              contentToParse = cleanJsonString(contentToParse);
-
-              console.log('准备解析的内容:', contentToParse);
-
-              // 从内容中提取第一个完整的JSON对象
-              const extractedJson = this.extractFirstJson(contentToParse);
-
-              if (extractedJson) {
-                console.log('提取到的JSON:', extractedJson);
-                // 清理后再解析
-                const replyJson = JSON.parse(cleanJsonString(extractedJson)) as NewApiResponse;
-
-                if (replyJson.reply) {
-                  visitorText = replyJson.reply;
-                }
-                if (replyJson.open_stage) {
-                  const levelMatch = replyJson.open_stage.match(/\bLevel\s+(\d+)\b/i);
-                  if (levelMatch) {
-                    const levelValue = parseInt(levelMatch[1], 10);
-                    if (levelValue >= 1 && levelValue <= 4) {
-                      opennessLevel = levelValue;
+                  // 从内容中提取第一个完整的JSON对象
+                  const extractedJson = this.extractFirstJson(contentToParse);
+                  if (extractedJson) {
+                    console.log('提取到的JSON:', extractedJson);
+                    // 尝试直接解析，失败再清理
+                    try {
+                      const replyJson = JSON.parse(extractedJson) as NewApiResponse;
+                      if (replyJson.reply) {
+                        visitorText = replyJson.reply;
+                      }
+                      if (replyJson.open_stage) {
+                        const levelMatch = replyJson.open_stage.match(/\bLevel\s+(\d+)\b/i);
+                        if (levelMatch) {
+                          const levelValue = parseInt(levelMatch[1], 10);
+                          if (levelValue >= 1 && levelValue <= 4) {
+                            opennessLevel = levelValue;
+                          }
+                        }
+                      }
+                    } catch {
+                      const cleaned = cleanJsonString(extractedJson);
+                      const replyJson = JSON.parse(cleaned) as NewApiResponse;
+                      if (replyJson.reply) {
+                        visitorText = replyJson.reply;
+                      }
+                      if (replyJson.open_stage) {
+                        const levelMatch = replyJson.open_stage.match(/\bLevel\s+(\d+)\b/i);
+                        if (levelMatch) {
+                          const levelValue = parseInt(levelMatch[1], 10);
+                          if (levelValue >= 1 && levelValue <= 4) {
+                            opennessLevel = levelValue;
+                          }
+                        }
+                      }
                     }
                   }
+                } else {
+                  // 没有代码块，直接使用reply
+                  visitorText = firstJson.reply;
                 }
-              } else {
-                throw new Error('无法从reply中提取JSON对象');
               }
             } catch (e) {
-              console.error('reply字段JSON解析失败，尝试直接提取:', e);
-              const replyMatch = firstJson.reply.match(/"reply":\s*"([^"]+)"/);
-              if (replyMatch && replyMatch[1]) {
-                visitorText = replyMatch[1].replace(/\\"/g, '"');
-              } else {
-                visitorText = firstJson.reply;
-              }
+              console.error('reply字段JSON解析失败，使用原始reply:', e);
+              visitorText = firstJson.reply;
             }
           } else {
             visitorText = firstJson.reply;
