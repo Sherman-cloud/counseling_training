@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Calendar, MessageSquare, TrendingUp, Award, Activity } from 'lucide-react';
+import { ArrowLeft, Calendar, MessageSquare, TrendingUp, Award, Activity, AlertCircle } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
@@ -45,6 +45,7 @@ export function ProgressAnalysis({ userId, onBack }: ProgressAnalysisProps) {
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<PracticeSession | null>(null);
+  const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(true);
 
   useEffect(() => {
     loadSessions();
@@ -54,6 +55,7 @@ export function ProgressAnalysis({ userId, onBack }: ProgressAnalysisProps) {
     try {
       if (!supabase) {
         console.warn('Supabase 未配置，无法加载练习记录');
+        setIsSupabaseConfigured(false);
         setIsLoading(false);
         return;
       }
@@ -109,6 +111,25 @@ export function ProgressAnalysis({ userId, onBack }: ProgressAnalysisProps) {
         <div className="text-center">
           <Activity className="w-16 h-16 mx-auto mb-4 text-slate-300 animate-pulse" />
           <p className="text-slate-500">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.bg }}>
+        <div className="bg-white rounded-xl p-12 text-center max-w-md shadow-sm border border-slate-200">
+          <AlertCircle className="w-16 h-16 mx-auto mb-4 text-amber-500" />
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">数据库未配置</h2>
+          <p className="text-slate-500 mb-6">进步分析功能需要配置数据库才能使用。请联系管理员配置 Supabase。</p>
+          <Button
+            onClick={onBack}
+            className="text-white hover:opacity-90"
+            style={{ backgroundColor: colors.primary }}
+          >
+            返回场景选择
+          </Button>
         </div>
       </div>
     );

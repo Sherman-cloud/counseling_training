@@ -3,7 +3,7 @@ import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { supabase } from '@/lib/supabase';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 interface LoginPageProps {
   onLogin: (userId?: string) => void;
@@ -24,14 +24,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     try {
       // 检查 Supabase 是否已配置
       if (!supabase) {
-        // 模拟登录（未配置 Supabase）
-        if (email && password) {
-          console.log('使用模拟登录（未配置 Supabase）');
-          await new Promise(resolve => setTimeout(resolve, 500));
-          onLogin('mock-user-id');
-        } else {
-          setError('请输入邮箱和密码');
-        }
+        setError('系统未配置数据库，请联系管理员');
         setIsLoading(false);
         return;
       }
@@ -45,15 +38,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         });
 
         if (signUpError) {
-          // 如果用户已存在，尝试登录
-          if (signUpError.message.includes('already registered')) {
-            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-              email,
-              password,
-            });
-
-            if (signInError) throw signInError;
-            onLogin(signInData.user?.id);
+          // 如果用户已存在，提示直接登录
+          if (signUpError.message.includes('already registered') || signUpError.message.includes('User already registered')) {
+            setError('该邮箱已注册，请切换到登录模式');
           } else {
             throw signUpError;
           }
@@ -71,20 +58,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         });
 
         if (signInError) {
-          // 如果用户不存在，尝试自动注册
-          if (signInError.message.includes('Invalid login credentials')) {
-            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-              email,
-              password,
-            });
-
-            if (signUpError) throw signUpError;
-            if (signUpData.user) {
-              onLogin(signUpData.user.id);
-            }
-          } else {
-            throw signInError;
-          }
+          throw signInError;
         } else {
           onLogin(data.user?.id);
         }
@@ -108,6 +82,16 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             <p className="text-slate-500">
               {isRegisterMode ? '注册账号' : '登录以开始您的培训评测'}
             </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-800">
+                <p className="font-semibold mb-1">使用真实账号登录</p>
+                <p className="text-blue-700">请使用您的真实邮箱注册或登录。您的练习记录将保存在数据库中，方便查看进步分析。</p>
+              </div>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
