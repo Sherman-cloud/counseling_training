@@ -23,10 +23,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
     try {
       // 检查 Supabase 是否已配置
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-      if (!supabaseUrl || !supabaseKey) {
+      if (!supabase) {
         // 模拟登录（未配置 Supabase）
         if (email && password) {
           console.log('使用模拟登录（未配置 Supabase）');

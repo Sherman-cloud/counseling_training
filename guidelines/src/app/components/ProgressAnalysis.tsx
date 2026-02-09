@@ -52,6 +52,12 @@ export function ProgressAnalysis({ userId, onBack }: ProgressAnalysisProps) {
 
   const loadSessions = async () => {
     try {
+      if (!supabase) {
+        console.warn('Supabase 未配置，无法加载练习记录');
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('practice_sessions')
         .select('*')
